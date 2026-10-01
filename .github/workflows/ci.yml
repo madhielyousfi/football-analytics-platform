@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      DBT_DUCKDB_PATH: ${{ runner.temp }}/football-ci.duckdb
+      DBT_DUCKDB_PATH: ${{ github.workspace }}/data/football-ci.duckdb
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
