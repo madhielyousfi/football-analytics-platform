@@ -1,6 +1,13 @@
 """Entry point: streamlit run dashboard/app.py"""
 
+import sys
+from pathlib import Path
+
 import streamlit as st
+
+# Streamlit places the script directory on sys.path, so add the project root
+# for imports shared by this entry point and its pages.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from dashboard.database import ensure_analytics_ready, query_frame
 from dashboard.queries import competition_seasons
