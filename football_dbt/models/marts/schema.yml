@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: dim_team
+    description: One row per team ID, including teams found in match history.
+    columns:
+      - name: team_id
+        data_tests: [unique, not_null]
+      - name: team_name
+        data_tests: [not_null]
+
+  - name: dim_competition
+    description: One row per competition ID, with its current-season attributes.
+    columns:
+      - name: competition_id
+        data_tests: [unique, not_null]
+
+  - name: dim_date
+    description: One row for every calendar date from the first to the last loaded match.
+    columns:
+      - name: date_id
+        data_tests: [unique, not_null]
+      - name: date
+        data_tests: [unique, not_null]
+
+  - name: fact_matches
+    description: One row per match, including unplayed fixtures. Result metrics are null until completion.
+    columns:
+      - name: match_id
+        data_tests: [unique, not_null]
+      - name: date_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_id
+      - name: competition_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_competition')
+                field: competition_id
+      - name: home_team_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_team')
+                field: team_id
+      - name: away_team_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_team')
+                field: team_id

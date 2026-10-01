@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DBT_DUCKDB_PATH: ${{ runner.temp }}/football-ci.duckdb
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Python tests
+        run: python -m pytest -q
+      - name: Create token-free raw fixture
+        run: python -m scripts.create_ci_database --db-path "$DBT_DUCKDB_PATH"
+      - name: Parse dbt project
+        working-directory: football_dbt
+        run: dbt parse --profiles-dir .
+      - name: Compile dbt project
+        working-directory: football_dbt
+        run: dbt compile --profiles-dir .
+      - name: Build dbt models and run data tests
+        working-directory: football_dbt
+        run: dbt build --profiles-dir .

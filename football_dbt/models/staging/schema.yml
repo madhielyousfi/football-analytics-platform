@@ -1,0 +1,71 @@
+version: 2
+
+models:
+  - name: stg_standings
+    description: Official API standing rows, including TOTAL, HOME, AWAY and group tables where available.
+    columns:
+      - name: standing_key
+        data_tests: [unique, not_null]
+      - name: competition_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_competitions')
+                field: competition_id
+      - name: team_id
+        data_tests: [not_null]
+      - name: standing_type
+        data_tests: [not_null]
+
+  - name: stg_competitions
+    description: Typed, one-row-per-competition view over the API raw table.
+    columns:
+      - name: competition_id
+        data_tests: [unique, not_null]
+      - name: competition_code
+        data_tests: [not_null]
+
+  - name: stg_teams
+    description: Typed, one-row-per-team view. Team membership is the latest loaded season.
+    columns:
+      - name: team_id
+        data_tests: [unique, not_null]
+      - name: competition_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_competitions')
+                field: competition_id
+
+  - name: stg_matches
+    description: Typed, one-row-per-match view with UTC date and full-time scores.
+    columns:
+      - name: match_id
+        data_tests: [unique, not_null]
+      - name: competition_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_competitions')
+                field: competition_id
+      - name: home_team_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_teams')
+                field: team_id
+      - name: away_team_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_teams')
+                field: team_id
+      - name: match_datetime
+        data_tests: [not_null]
+      - name: match_status
+        data_tests: [not_null]

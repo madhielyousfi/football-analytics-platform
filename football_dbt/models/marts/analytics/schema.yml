@@ -1,0 +1,72 @@
+version: 2
+
+models:
+  - name: mart_team_performance
+    description: One row per team, competition and season with completed-match totals and rates.
+    columns:
+      - name: team_id
+        data_tests: [not_null]
+      - name: competition_id
+        data_tests: [not_null]
+      - name: season
+        data_tests: [not_null]
+
+  - name: mart_league_table
+    description: One row per participant and season. Simplified order is points, goal difference, goals for, name and ID; competition-specific tie-breakers are not applied.
+    columns:
+      - name: position
+        data_tests: [not_null]
+      - name: team_id
+        data_tests: [not_null]
+      - name: competition_id
+        data_tests: [not_null]
+      - name: season
+        data_tests: [not_null]
+
+  - name: mart_team_form
+    description: One row per team, competition and season with up to five most recent completed matches. Recent form is newest first.
+    columns:
+      - name: team_id
+        data_tests: [not_null]
+      - name: recent_matches
+        data_tests: [not_null]
+
+  - name: mart_home_away
+    description: One row per team, competition and season with separate home and away totals.
+    columns:
+      - name: team_id
+        data_tests: [not_null]
+
+  - name: mart_goal_analysis
+    description: One row per competition and season with goal distribution metrics. Team goals are in mart_team_performance.
+    columns:
+      - name: competition_id
+        data_tests: [not_null]
+      - name: season
+        data_tests: [not_null]
+
+  - name: mart_head_to_head
+    description: One row per unordered team pair, competition and season. Team A is the lower team ID; recent scorelines are from Team A's perspective.
+    columns:
+      - name: team_a_id
+        data_tests: [not_null]
+      - name: team_b_id
+        data_tests: [not_null]
+      - name: competition_id
+        data_tests: [not_null]
+      - name: season
+        data_tests: [not_null]
+
+  - name: mart_goal_trends
+    description: One row per played date, competition and season with daily goal totals.
+    columns:
+      - name: match_date
+        data_tests: [not_null]
+
+  - name: mart_team_progression
+    description: One row per team and completed match, with dbt-calculated cumulative goals and points.
+    columns:
+      - name: match_id
+        data_tests: [not_null]
+      - name: team_id
+        data_tests: [not_null]

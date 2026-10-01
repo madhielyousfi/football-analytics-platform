@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: int_match_results
+    description: One row per match. Result metrics are null until a match is finished with scores.
+    columns:
+      - name: match_id
+        data_tests: [unique, not_null]
+      - name: is_completed
+        data_tests: [not_null]
+
+  - name: int_team_matches
+    description: Two team-perspective rows per scored, finished match.
+    columns:
+      - name: match_id
+        data_tests: [not_null]
+      - name: team_id
+        data_tests: [not_null]
+      - name: venue_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['HOME', 'AWAY']
+      - name: result
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['W', 'D', 'L']

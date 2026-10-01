@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: API objects loaded by Python, keyed by football-data.org IDs.
+    tables:
+      - name: competitions
+        description: One row per competition ID, including original API JSON.
+      - name: teams
+        description: One row per team ID for the most recently ingested competition and season.
+      - name: matches
+        description: One row per match ID, updated on every ingestion.
+      - name: standings
+        description: Official API standing rows, keyed by competition, season, type, stage, group and team.

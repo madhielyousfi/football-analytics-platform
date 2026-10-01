@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+data/*.duckdb
+data/*.duckdb.*
+logs/*
+!logs/.gitkeep
+football_dbt/target/
+football_dbt/logs/
+football_dbt/dbt_packages/
+football_dbt/.user.yml
