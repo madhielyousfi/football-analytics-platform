@@ -32,14 +32,18 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-page = st.navigation([
+pages = [
     st.Page("pages/overview.py", title="Overview", icon="📊", default=True),
     st.Page("pages/league.py", title="League", icon="🏆"),
     st.Page("pages/teams.py", title="Teams", icon="👥"),
     st.Page("pages/matches.py", title="Matches", icon="📅"),
     st.Page("pages/head_to_head.py", title="Head-to-Head", icon="⚔️"),
     st.Page("pages/pipeline.py", title="Pipeline", icon="🔄"),
-])
+]
+# Keep the brand above navigation; Streamlit's default sidebar nav renders first.
+page = st.navigation(pages, position="hidden")
+for destination in pages:
+    st.sidebar.page_link(destination, use_container_width=True)
 
 available = competition_seasons()
 if available.empty:

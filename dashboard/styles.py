@@ -97,9 +97,16 @@ def inject_styles() -> None:
         [data-testid="stAppViewContainer"] {background:radial-gradient(circle at 75% 0%,#0b1724 0%,#07111b 48%,#050d17 100%);}
         [data-testid="stMainBlockContainer"] {max-width:none; padding:1.15rem 1.55rem 2rem;}
         [data-testid="stSidebar"] {background:linear-gradient(180deg,#06121d,#091827); border-right:1px solid #1c3343;}
+        /* Let the brand occupy the top row beside Streamlit's collapse control. */
+        [data-testid="stSidebarHeader"] {position:absolute;top:0;right:0;z-index:2;width:54px;}
+        [data-testid="stSidebarUserContent"] {padding-top:0;}
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {gap:.7rem;}
         [data-testid="stSidebarNav"] a {padding:.85rem .95rem; font-size:.92rem;}
         [data-testid="stSidebarNav"] a[aria-current="page"] {background:linear-gradient(90deg,rgba(53,216,124,.18),rgba(53,216,124,.06));border-left:4px solid #35d87c;}
+        [data-testid="stSidebar"] [data-testid="stPageLink"] a {display:flex;width:100%;min-height:46px;align-items:center;padding:.7rem .85rem;border-radius:9px;border-left:4px solid transparent;color:#a8b9cc;text-decoration:none;font-size:.86rem;}
+        [data-testid="stSidebar"] [data-testid="stPageLink"] a:hover {background:rgba(53,216,124,.08);color:#f8fafc;}
+        [data-testid="stSidebar"] [data-testid="stPageLink"] a[aria-current="page"] {background:linear-gradient(90deg,rgba(53,216,124,.19),rgba(53,216,124,.07));border-left-color:#35d87c;color:#f8fafc;}
+        [data-testid="stSidebar"] [data-testid="stPageLink"] p {color:inherit;font-size:inherit;}
         .fi-brand {padding:.5rem .2rem 1.2rem; gap:.7rem;}
         .fi-mark {width:46px;height:46px;border-radius:50%;background:rgba(53,216,124,.11);font-size:1.55rem;box-shadow:0 0 22px rgba(53,216,124,.13);}
         .fi-brand strong {font-size:1.12rem;line-height:1.15;max-width:140px;}
