@@ -23,6 +23,7 @@ def connect(path: Path) -> Iterator[duckdb.DuckDBPyConnection]:
 def create_tables(connection: duckdb.DuckDBPyConnection) -> None:
     """Initialize raw and metadata objects without clearing prior data."""
     connection.execute("CREATE SCHEMA IF NOT EXISTS raw")
+    connection.execute("CREATE SCHEMA IF NOT EXISTS raw_af")
     connection.execute("CREATE SCHEMA IF NOT EXISTS metadata")
     connection.execute("""CREATE TABLE IF NOT EXISTS metadata.pipeline_runs (
         run_id VARCHAR PRIMARY KEY, pipeline_name VARCHAR NOT NULL,
@@ -67,6 +68,27 @@ def create_tables(connection: duckdb.DuckDBPyConnection) -> None:
         _ingested_at TIMESTAMPTZ, _batch_id VARCHAR,
         _source VARCHAR, _api_endpoint VARCHAR
     )""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS raw_af.fixtures (
+        fixture_id INTEGER PRIMARY KEY, league_id INTEGER,
+        league_name VARCHAR, season INTEGER, round VARCHAR,
+        fixture_date TIMESTAMPTZ, timestamp BIGINT,
+        status_long VARCHAR, status_short VARCHAR, elapsed INTEGER,
+        home_team_id INTEGER, home_team_name VARCHAR, home_winner BOOLEAN,
+        away_team_id INTEGER, away_team_name VARCHAR, away_winner BOOLEAN,
+        goals_home INTEGER, goals_away INTEGER,
+        _payload JSON, _ingested_at TIMESTAMPTZ, _batch_id VARCHAR,
+        _source VARCHAR, _api_endpoint VARCHAR
+    )""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS raw_af.events (
+        event_key VARCHAR PRIMARY KEY, fixture_id INTEGER,
+        elapsed INTEGER, extra_minute INTEGER,
+        team_id INTEGER, team_name VARCHAR,
+        player_id INTEGER, player_name VARCHAR,
+        assist_player_id INTEGER, assist_player_name VARCHAR,
+        event_type VARCHAR, detail VARCHAR, comments VARCHAR,
+        _payload JSON, _ingested_at TIMESTAMPTZ, _batch_id VARCHAR,
+        _source VARCHAR, _api_endpoint VARCHAR
+    )""")
 
 
 def start_run(connection: duckdb.DuckDBPyConnection, run_id: str) -> None:
@@ -87,9 +109,11 @@ def finish_run(connection: duckdb.DuckDBPyConnection, run_id: str, status: str,
 
 
 def upsert_rows(connection: duckdb.DuckDBPyConnection, table: str, key: str,
-                rows: list[dict[str, Any]]) -> tuple[int, int]:
+                 rows: list[dict[str, Any]], schema: str = "raw") -> tuple[int, int]:
     """Replace keyed source records atomically within the caller's transaction."""
-    if table not in {"competitions", "teams", "matches", "standings"}:
+    allowed = {"competitions", "teams", "matches", "standings"} if schema == "raw" \
+        else {"fixtures", "events"} if schema == "raw_af" else set()
+    if table not in allowed:
         raise ValueError("Unsupported raw table")
     if not rows:
         return 0, 0
@@ -102,12 +126,12 @@ def upsert_rows(connection: duckdb.DuckDBPyConnection, table: str, key: str,
     unique = {row[key]: row for row in rows}
     keys = list(unique)
     existing = {record[0] for record in connection.execute(
-        f"SELECT {key} FROM raw.{table} WHERE {key} IN ({', '.join('?' for _ in keys)})", keys
+        f"SELECT {key} FROM {schema}.{table} WHERE {key} IN ({', '.join('?' for _ in keys)})", keys
     ).fetchall()}
     placeholders = ", ".join("?" for _ in columns)
     column_sql = ", ".join(columns)
     update_sql = ", ".join(f"{col} = EXCLUDED.{col}" for col in columns if col != key)
-    statement = (f"INSERT INTO raw.{table} ({column_sql}) VALUES ({placeholders}) "
+    statement = (f"INSERT INTO {schema}.{table} ({column_sql}) VALUES ({placeholders}) "
                  f"ON CONFLICT ({key}) DO UPDATE SET {update_sql}")
     for row in unique.values():
         connection.execute(statement, [json.dumps(value) if isinstance(value, (dict, list))
