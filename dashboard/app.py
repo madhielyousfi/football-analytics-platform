@@ -10,7 +10,8 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from dashboard.components.cards import page_header
-from dashboard.database import ensure_analytics_ready, query_frame
+from dashboard.bootstrap import ensure_or_bootstrap
+from dashboard.database import query_frame
 from dashboard.queries import competition_seasons, pipeline_runs
 from dashboard.styles import inject_styles, relative_time
 
@@ -19,7 +20,8 @@ st.set_page_config(page_title="Football Analytics", page_icon="⚽", layout="wid
 inject_styles()
 
 try:
-    ensure_analytics_ready()
+    with st.spinner("Preparing football analytics data…", show_time=True):
+        ensure_or_bootstrap()
 except (FileNotFoundError, RuntimeError) as exc:
     st.error(str(exc))
     st.stop()

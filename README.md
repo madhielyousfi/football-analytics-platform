@@ -138,6 +138,27 @@ The dark dashboard has six pages: **Overview** (KPIs, standings, goals trend, at
 
 Screenshot placeholders and capture guidance are in [docs/screenshots](docs/screenshots/README.md). No unverified dashboard images are included.
 
+### Deploy on Streamlit Community Cloud
+
+The code is published at [madhielyousfi/football-analytics-platform](https://github.com/madhielyousfi/football-analytics-platform) on `main`. If the local **Deploy** button says the code is not connected to GitHub, use [share.streamlit.io](https://share.streamlit.io/) directly: sign in with the GitHub account that owns the repository, choose **Create app** → **Yup, I have an app**, and enter these coordinates manually:
+
+| Field | Value |
+| --- | --- |
+| Repository | `madhielyousfi/football-analytics-platform` |
+| Branch | `main` |
+| Main file path | `dashboard/app.py` |
+
+In **Advanced settings**, select Python 3.12 and add these **Streamlit Cloud secrets** (replace the placeholder with your own token):
+
+```toml
+FOOTBALL_API_TOKEN = "your-football-data-org-token"
+FOOTBALL_AUTO_BOOTSTRAP = "true"
+FOOTBALL_COMPETITION = "PL"
+FOOTBALL_SEASON = "2026"
+```
+
+The Cloud secret is separate from the GitHub Actions secret. Never commit it to Git. On first start, the app uses the token to ingest the selected season and run `dbt build` into an ephemeral DuckDB file; subsequent sessions on the same instance read the built marts. A Cloud restart may repeat the full load, so API rate limits apply. The GitHub Actions artifact does not automatically feed Streamlit Cloud, and scheduled updates need persistent storage in a later version. Local runs keep the existing manual `ingest` → `dbt build` workflow unless `FOOTBALL_AUTO_BOOTSTRAP=true` is explicitly set.
+
 ## Makefile and automation
 
 ```bash
@@ -188,7 +209,7 @@ The API token is required for a real ingestion. The database file and `.env` are
 - Persist scheduled runs in object storage so incremental extraction can continue across GitHub jobs.
 - Add season-grained team membership and historical attributes.
 - Reconcile calculated rankings with official standings and competition-specific tie-breakers.
-- Publish a hosted dashboard and verified screenshots.
+- Add persistent storage and verified screenshots for the hosted dashboard.
 - Add more competitions and historical season backfills after checking API plan limits.
 
-The [portfolio case study](docs/portfolio_case_study.md) summarizes the engineering choices and a dated validation snapshot. This repository has not been connected to a GitHub remote in the current workspace, so the workflow definitions still need a first hosted run.
+The [portfolio case study](docs/portfolio_case_study.md) summarizes the engineering choices and a dated validation snapshot. GitHub CI and the scheduled pipeline have been exercised on the published repository.
