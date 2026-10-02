@@ -6,13 +6,13 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-BG = "#080B12"
-SURFACE = "#111722"
-SURFACE_ALT = "#151D2A"
+BG = "#07111B"
+SURFACE = "#0B1825"
+SURFACE_ALT = "#102130"
 TEXT = "#F8FAFC"
 MUTED = "#94A3B8"
-GREEN = "#22C55E"
-CYAN = "#06B6D4"
+GREEN = "#35D87C"
+CYAN = "#39C9EE"
 VIOLET = "#8B5CF6"
 AMBER = "#F59E0B"
 RED = "#EF4444"
@@ -93,7 +93,54 @@ def inject_styles() -> None:
         .fi-architecture {display:flex; flex-wrap:wrap; align-items:center; gap:.45rem; margin:.5rem 0 1rem;}
         .fi-step {padding:.65rem .8rem; border:1px solid rgba(255,255,255,.09); border-radius:10px; background:#151D2A; color:#F8FAFC; font-size:.75rem; font-weight:600;}
         .fi-arrow {color:#22C55E;}
-        @media (max-width:900px) {.fi-header {display:block;} .fi-header .fi-status {display:inline-block; margin-top:1rem;} [data-testid="stMainBlockContainer"] {padding:1rem;} .fi-kpi {min-height:105px;}}
+        /* Reference dashboard: deep navy canvas, restrained green accents, dense panels. */
+        [data-testid="stAppViewContainer"] {background:radial-gradient(circle at 75% 0%,#0b1724 0%,#07111b 48%,#050d17 100%);}
+        [data-testid="stMainBlockContainer"] {max-width:none; padding:1.15rem 1.55rem 2rem;}
+        [data-testid="stSidebar"] {background:linear-gradient(180deg,#06121d,#091827); border-right:1px solid #1c3343;}
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {gap:.7rem;}
+        [data-testid="stSidebarNav"] a {padding:.85rem .95rem; font-size:.92rem;}
+        [data-testid="stSidebarNav"] a[aria-current="page"] {background:linear-gradient(90deg,rgba(53,216,124,.18),rgba(53,216,124,.06));border-left:4px solid #35d87c;}
+        .fi-brand {padding:.5rem .2rem 1.2rem; gap:.7rem;}
+        .fi-mark {width:46px;height:46px;border-radius:50%;background:rgba(53,216,124,.11);font-size:1.55rem;box-shadow:0 0 22px rgba(53,216,124,.13);}
+        .fi-brand strong {font-size:1.12rem;line-height:1.15;max-width:140px;}
+        .fi-brand small {display:none;}
+        .fi-sidebar-label {letter-spacing:0;text-transform:none;color:#9eb0c3;font-size:.78rem;margin-top:1rem;}
+        .fi-header {align-items:center;margin-bottom:1.35rem;}
+        .fi-header h1 {font-size:clamp(1.8rem,2.6vw,2.5rem);font-weight:800;}
+        .fi-subtitle {font-size:.91rem;color:#a5b6ca;}
+        .fi-status {border-radius:10px;padding:.55rem .8rem;border-color:#15563a;background:#09291f;color:#56e995;font-size:.78rem;}
+        [data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {background:linear-gradient(145deg,rgba(10,23,36,.97),rgba(11,26,40,.92));border:1px solid #1b3040;border-radius:10px;padding:1rem;}
+        [data-testid="stVerticalBlockBorderWrapper"] {border-radius:10px;}
+        .fi-kpi {display:flex;align-items:center;gap:1rem;min-height:116px;padding:1rem;background:linear-gradient(135deg,#0a1825,#0d1c2b);border:1px solid #1b3040;border-radius:10px;}
+        .fi-kpi-icon {display:grid;place-items:center;flex:none;width:58px;height:58px;border-radius:13px;background:rgba(53,216,124,.11);color:#48e58b;font-size:1.8rem;}
+        .fi-kpi.violet .fi-kpi-icon {background:rgba(160,119,255,.12);color:#b891ff;}
+        .fi-kpi.cyan .fi-kpi-icon {background:rgba(57,201,238,.09);color:#39c9ee;}
+        .fi-kpi-copy {min-width:0;}
+        .fi-kpi-head {font-size:.83rem;color:#b6c5d8;font-weight:500;}
+        .fi-kpi-value,.fi-kpi.green .fi-kpi-value,.fi-kpi.cyan .fi-kpi-value,.fi-kpi.violet .fi-kpi-value {color:#f8fafc;font-size:1.8rem;margin-top:.2rem;}
+        .fi-kpi-note {color:#8298ac;font-size:.69rem;margin-top:.15rem;}
+        .fi-panel-title {font-size:.94rem;margin-bottom:.85rem;}
+        .fi-panel-title span {color:#7caef4;}
+        .fi-table {font-size:.75rem;}
+        .fi-table th {background:rgba(7,18,29,.5);color:#a7b8cb;font-size:.64rem;letter-spacing:0;padding:.65rem .3rem;}
+        .fi-table td {padding:.72rem .3rem;border-bottom:1px solid #1a2b3b;}
+        .fi-table tr:nth-child(even) {background:rgba(16,37,54,.35);}
+        .fi-club {font-weight:500;}
+        .fi-crest,.fi-initials {height:25px;width:25px;}
+        .fi-position {display:grid;place-items:center;padding:0;width:25px;height:25px;border:0;border-radius:50%;background:#243649;color:#e8f0f8;font-weight:700;}
+        .fi-position.top,.fi-position.europe {background:#177342;color:#fff;}
+        .fi-position.bottom {background:#334558;color:#e8f0f8;}
+        .fi-attack-list {display:flex;flex-direction:column;gap:.35rem;padding-top:.25rem;}
+        .fi-attack-row {display:flex;align-items:center;gap:.55rem;min-height:43px;color:#eaf2f9;font-size:.75rem;}
+        .fi-attack-name {width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .fi-attack-track {flex:1;height:13px;border-radius:5px;background:#1d2d3d;overflow:hidden;}
+        .fi-attack-fill {display:block;height:100%;border-radius:5px;background:linear-gradient(90deg,#25c65f,#42d780);}
+        .fi-attack-1,.fi-attack-2 {background:linear-gradient(90deg,#2a8ff2,#46c3e7);}
+        .fi-attack-3,.fi-attack-4 {background:linear-gradient(90deg,#7975e9,#ad8bff);}
+        .fi-attack-row strong {min-width:22px;text-align:right;font-size:.76rem;}
+        .fi-form-row {min-height:40px;}
+        .fi-form .W {background:#168750;color:white;} .fi-form .D {background:#ad904a;color:white;} .fi-form .L {background:#e84a4d;}
+        @media (max-width:900px) {.fi-header {display:block;} .fi-header .fi-status {display:inline-block; margin-top:1rem;} [data-testid="stMainBlockContainer"] {padding:1rem;} .fi-kpi {min-height:95px;} .fi-kpi-icon {width:45px;height:45px;}}
         </style>""",
         unsafe_allow_html=True,
     )

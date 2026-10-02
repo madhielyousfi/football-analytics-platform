@@ -8,15 +8,13 @@ import streamlit as st
 
 from dashboard import queries
 from dashboard.components.cards import form_badges, metric_card, section_header
-from dashboard.components.tables import league_table
+from dashboard.components.tables import _crest, league_table
 from dashboard.styles import CYAN, GREEN, VIOLET, plot, relative_time
 
 
 def render() -> None:
     competition_id = st.session_state["competition_id"]
     season = st.session_state["season"]
-    st.markdown('<div class="fi-page-title">Overview</div>', unsafe_allow_html=True)
-
     summary = queries.overview(competition_id, season)
     if summary.empty:
         st.info("Overview metrics are not available for this selection.")
@@ -24,9 +22,9 @@ def render() -> None:
     row = summary.iloc[0]
     values = (
         ("Matches", f'{int(row["total_matches"]):,}', "▦", "green", "Completed matches"),
-        ("Goals", f'{int(row["total_goals"]):,}', "⚽", "", "Across completed matches"),
-        ("Avg Goals", f'{row["average_goals_per_match"]:.2f}', "↗", "cyan", "Per completed match"),
-        ("Teams", int(row["number_of_teams"]), "♟", "violet", "In selected competition"),
+        ("Goals", f'{int(row["total_goals"]):,}', "⚽", "violet", "Across completed matches"),
+        ("Avg Goals", f'{row["average_goals_per_match"]:.2f}', "▥", "cyan", "Per completed match"),
+        ("Teams", int(row["number_of_teams"]), "♟", "cyan", "In this competition"),
     )
     for column, (label, value, icon, tone, note) in zip(st.columns(4), values):
         with column:
@@ -38,10 +36,10 @@ def render() -> None:
     performance = queries.team_performance(competition_id, season)
     left, center, right = st.columns([1.35, 1.2, 1], gap="medium")
     with left, st.container(border=True):
-        section_header("League standings", "Top 8")
+        section_header("🏆  League Standings", "Top 8")
         league_table(table, compact=True)
     with center, st.container(border=True):
-        section_header("Goals trend", "Average per match day")
+        section_header("⌁  Goals Trend", "Per match")
         if trends.empty:
             st.info("Goal trends appear after completed matches.")
         else:
@@ -52,23 +50,28 @@ def render() -> None:
                 fill="tozeroy", fillcolor="rgba(34,197,94,0.06)",
                 hovertemplate="%{x|%b %d}<br>%{y:.2f} avg goals<extra></extra>",
             ))
-            fig.update_yaxes(title="Goals / match")
+            fig.update_yaxes(title=None, showgrid=True)
             plot(fig, height=300)
     with right, st.container(border=True):
-        section_header("Top attack", "Goals scored")
+        section_header("🎯  Top Attack", "Goals")
         if performance.empty:
             st.info("No completed team results yet.")
         else:
-            top = performance.nlargest(7, "goals_for").sort_values("goals_for")
-            fig = go.Figure(go.Bar(
-                x=top["goals_for"], y=top["team_name"], orientation="h",
-                marker_color=[GREEN, CYAN, VIOLET, GREEN, CYAN, VIOLET, GREEN][:len(top)],
-                text=top["goals_for"], textposition="outside",
-                hovertemplate="%{y}: %{x} goals<extra></extra>",
-            ))
-            fig.update_xaxes(title=None)
-            fig.update_yaxes(tickfont=dict(size=10))
-            plot(fig, height=300)
+            crests = {str(item["team_name"]): item.get("crest_url") for _, item in table.iterrows()}
+            top = performance.nlargest(5, "goals_for")
+            maximum = max(1, int(top["goals_for"].max()))
+            bars = []
+            for index, (_, team) in enumerate(top.iterrows()):
+                name = str(team["team_name"])
+                goals = int(team["goals_for"])
+                width = 100 * goals / maximum
+                bars.append(
+                    f'<div class="fi-attack-row">{_crest(name, crests.get(name))}'
+                    f'<span class="fi-attack-name">{escape(name)}</span>'
+                    f'<span class="fi-attack-track"><span class="fi-attack-fill fi-attack-{index}" style="width:{width:.1f}%"></span></span>'
+                    f'<strong>{goals}</strong></div>'
+                )
+            st.markdown('<div class="fi-attack-list">' + ''.join(bars) + '</div>', unsafe_allow_html=True)
 
     st.write("")
     outcomes = queries.match_outcomes(competition_id, season)
@@ -76,7 +79,7 @@ def render() -> None:
     runs = queries.pipeline_runs(1)
     left, center, right = st.columns(3, gap="medium")
     with left, st.container(border=True):
-        section_header("Home vs away", "Completed results")
+        section_header("⌂  Home vs Away", "Completed results")
         if outcomes.empty or int(outcomes.iloc[0]["total_matches"]) == 0:
             st.info("No completed matches yet.")
         else:
@@ -85,16 +88,16 @@ def render() -> None:
             fig = go.Figure(go.Pie(
                 labels=["Home wins", "Away wins", "Draws"],
                 values=[result["home_wins"], result["away_wins"], result["draws"]],
-                hole=.73, marker_colors=[GREEN, CYAN, "#64748B"],
-                textinfo="percent", textposition="outside",
+                hole=.69, marker_colors=[GREEN, "#3B9BFB", "#64748B"],
+                textinfo="none",
                 hovertemplate="%{label}: %{value} (%{percent})<extra></extra>",
             ))
             fig.add_annotation(text=f"<b>{total}</b><br>matches", x=.5, y=.5,
                                showarrow=False, font=dict(size=15, color="#F8FAFC"))
-            fig.update_layout(legend=dict(orientation="h", y=-.1, x=.5, xanchor="center"))
-            plot(fig, height=260, showlegend=True)
+            fig.update_layout(legend=dict(orientation="h", y=-.08, x=.5, xanchor="center"))
+            plot(fig, height=250, showlegend=True)
     with center, st.container(border=True):
-        section_header("Recent form", "Last 5 finished matches")
+        section_header("⌁  Recent Form", "Last 5 matches")
         if form.empty:
             st.info("Form appears after completed matches.")
         else:
@@ -106,7 +109,7 @@ def render() -> None:
             )
             st.markdown(rows, unsafe_allow_html=True)
     with right, st.container(border=True):
-        section_header("Pipeline summary", "Latest ingestion")
+        section_header("▰  Pipeline", "Latest ingestion")
         if runs.empty:
             st.info("No pipeline run metadata is available.")
         else:
