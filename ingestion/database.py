@@ -89,6 +89,52 @@ def create_tables(connection: duckdb.DuckDBPyConnection) -> None:
         _payload JSON, _ingested_at TIMESTAMPTZ, _batch_id VARCHAR,
         _source VARCHAR, _api_endpoint VARCHAR
     )""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS raw_af.lineups (
+        lineup_key VARCHAR PRIMARY KEY, fixture_id INTEGER,
+        team_id INTEGER, team_name VARCHAR, formation VARCHAR, coach_name VARCHAR,
+        player_id INTEGER, player_name VARCHAR, number INTEGER,
+        position VARCHAR, grid VARCHAR, is_starting BOOLEAN,
+        _payload JSON, _ingested_at TIMESTAMPTZ, _batch_id VARCHAR,
+        _source VARCHAR, _api_endpoint VARCHAR
+    )""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS raw_af.fixture_stats (
+        stat_key VARCHAR PRIMARY KEY, fixture_id INTEGER,
+        team_id INTEGER, team_name VARCHAR,
+        stat_type VARCHAR, stat_value VARCHAR,
+        _payload JSON, _ingested_at TIMESTAMPTZ, _batch_id VARCHAR,
+        _source VARCHAR, _api_endpoint VARCHAR
+    )""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS raw_af.player_stats (
+        pstat_key VARCHAR PRIMARY KEY, fixture_id INTEGER,
+        team_id INTEGER, team_name VARCHAR,
+        player_id INTEGER, player_name VARCHAR, number INTEGER, position VARCHAR,
+        minutes INTEGER, rating VARCHAR,
+        goals INTEGER, assists INTEGER, shots_total INTEGER, shots_on INTEGER,
+        passes_total INTEGER, passes_key INTEGER, passes_accuracy VARCHAR,
+        tackles INTEGER, interceptions INTEGER,
+        duels_total INTEGER, duels_won INTEGER,
+        dribbles_attempts INTEGER, dribbles_success INTEGER,
+        fouls_drawn INTEGER, fouls_committed INTEGER,
+        yellow INTEGER, red INTEGER,
+        _payload JSON, _ingested_at TIMESTAMPTZ, _batch_id VARCHAR,
+        _source VARCHAR, _api_endpoint VARCHAR
+    )""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS raw_af.odds (
+        odd_key VARCHAR PRIMARY KEY, fixture_id INTEGER,
+        bookmaker_id INTEGER, bookmaker_name VARCHAR,
+        bet_id INTEGER, bet_name VARCHAR, value_name VARCHAR, odd VARCHAR,
+        _payload JSON, _ingested_at TIMESTAMPTZ, _batch_id VARCHAR,
+        _source VARCHAR, _api_endpoint VARCHAR
+    )""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS raw_af.injuries (
+        injury_key VARCHAR PRIMARY KEY,
+        player_id INTEGER, player_name VARCHAR,
+        injury_type VARCHAR, reason VARCHAR,
+        team_id INTEGER, team_name VARCHAR,
+        fixture_id INTEGER, fixture_date TIMESTAMPTZ,
+        _payload JSON, _ingested_at TIMESTAMPTZ, _batch_id VARCHAR,
+        _source VARCHAR, _api_endpoint VARCHAR
+    )""")
 
 
 def start_run(connection: duckdb.DuckDBPyConnection, run_id: str,
@@ -113,7 +159,8 @@ def upsert_rows(connection: duckdb.DuckDBPyConnection, table: str, key: str,
                  rows: list[dict[str, Any]], schema: str = "raw") -> tuple[int, int]:
     """Replace keyed source records atomically within the caller's transaction."""
     allowed = {"competitions", "teams", "matches", "standings"} if schema == "raw" \
-        else {"fixtures", "events"} if schema == "raw_af" else set()
+        else {"fixtures", "events", "lineups", "fixture_stats", "player_stats",
+              "odds", "injuries"} if schema == "raw_af" else set()
     if table not in allowed:
         raise ValueError("Unsupported raw table")
     if not rows:

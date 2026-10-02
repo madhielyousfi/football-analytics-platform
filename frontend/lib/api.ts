@@ -74,6 +74,14 @@ async function apiStatic<T>(path: string, params: Record<string, string | number
       }
       return kept as T;
     }
+    case "/api/injuries": {
+      let rows = await getJson<any[]>("af-injuries.json").catch(() => []);
+      if (params["fixture_id"] != null) rows = rows.filter((r) => r.fixture_id === Number(params["fixture_id"]));
+      if (params["league_id"] != null) rows = rows.filter((r) => r.league_id === Number(params["league_id"]));
+      if (params["season"] != null) rows = rows.filter((r) => r.season === Number(params["season"]));
+      if (params["team_id"] != null) rows = rows.filter((r) => r.team_id === Number(params["team_id"]));
+      return rows as T;
+    }
     case "/api/top-scorers": {
       let rows = await getJson<any[]>("af-top-scorers.json").catch(() => []);
       const lid = num(params["league_id"]);

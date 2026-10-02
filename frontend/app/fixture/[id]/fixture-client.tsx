@@ -6,7 +6,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { PageHeader, Empty, Crest, SkeletonGrid } from "@/components/ui";
 import { FormationPitch, StatBars } from "@/components/fixture-tabs";
-import type { FixtureDetail, LineupRow, MatchEvent, TeamStat } from "@/lib/types";
+import type { FixtureDetail, InjuryRow, LineupRow, MatchEvent, OddRow, TeamStat } from "@/lib/types";
 
 function iconFor(e: MatchEvent): string {
   const t = (e.event_type ?? "").toLowerCase();
@@ -23,7 +23,8 @@ function minute(e: MatchEvent): string {
 }
 
 export default function FixtureClient({ id }: { id: string }) {
-  const [tab, setTab] = useState<"timeline" | "lineups" | "stats">("timeline");
+  const [tab, setTab] = useState<"timeline" | "lineups" | "stats" | "odds">("timeline");
+  const [bookmaker, setBookmaker] = useState<string>("");
   const detail = useQuery({
     queryKey: ["fixture", id],
     queryFn: () => api<FixtureDetail>("/api/fixture-detail", { fixture_id: id }),
@@ -37,6 +38,16 @@ export default function FixtureClient({ id }: { id: string }) {
     queryKey: ["fixture-stats", id],
     queryFn: () => api<TeamStat[]>("/api/fixture-stats", { fixture_id: id }),
     enabled: tab === "stats",
+  });
+  const odds = useQuery({
+    queryKey: ["fixture-odds", id],
+    queryFn: () => api<OddRow[]>("/api/fixture-odds", { fixture_id: id }),
+    enabled: tab === "odds",
+  });
+  const injuries = useQuery({
+    queryKey: ["fixture-injuries", id],
+    queryFn: () => api<InjuryRow[]>("/api/injuries", { fixture_id: id }),
+    enabled: tab === "odds",
   });
 
   if (detail.isLoading) return (<div className="flex flex-col gap-4"><PageHeader eyebrow="Match" title="Loading…" /><SkeletonGrid /></div>);
@@ -81,7 +92,7 @@ export default function FixtureClient({ id }: { id: string }) {
       </div>
 
       <div className="mb-4 flex gap-2">
-        {(["timeline", "lineups", "stats"] as const).map((t) => (
+        {(["timeline", "lineups", "stats", "odds"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`rounded-xl px-4 py-2 text-xs font-bold capitalize transition ${tab === t ? "bg-pitch/15 text-green-300 border border-pitch/30" : "bg-surface2 text-muted border border-line hover:text-white"}`}>
             {t}
@@ -122,6 +133,11 @@ export default function FixtureClient({ id }: { id: string }) {
           <div className="card-title">Team statistics <span>home vs away</span></div>
           {stats.isLoading ? <div className="skeleton h-40" /> : <StatBars stats={stats.data ?? []} homeId={fx.home_team_id} />}
         </div>
+      )}
+
+      {tab === "odds" && (
+        <OddsTab rows={odds.data ?? []} loading={odds.isLoading}
+          injuries={injuries.data ?? []} bookmaker={bookmaker} setBookmaker={setBookmaker} />
       )}
       <Link href="/live" className="mt-4 inline-block text-xs font-bold text-pitch hover:underline">← Back to live board</Link>
     </div>
@@ -169,6 +185,79 @@ function LineupsTab({ rows, loading, homeId, awayId }: {
     <div className="grid gap-4 md:grid-cols-2">
       <div className="card"><TeamBlock team={home} color="#16a34a" /></div>
       <div className="card"><TeamBlock team={away} color="#0891b2" /></div>
+    </div>
+  );
+}
+
+function OddsTab({ rows, loading, injuries, bookmaker, setBookmaker }: {
+  rows: OddRow[]; loading: boolean; injuries: InjuryRow[];
+  bookmaker: string; setBookmaker: (b: string) => void;
+}) {
+  if (loading) return <div className="card"><div className="skeleton h-40" /></div>;
+  const books = Array.from(new Set(rows.map((r) => r.bookmaker_name ?? "Unknown")));
+  const active = bookmaker || books[0] || "";
+  const scoped = rows.filter((r) => (r.bookmaker_name ?? "Unknown") === active);
+  const byBet = new Map<string, OddRow[]>();
+  scoped.forEach((r) => {
+    const k = r.bet_name ?? "Other";
+    if (!byBet.has(k)) byBet.set(k, []);
+    byBet.get(k)!.push(r);
+  });
+  const winner = byBet.get("Match Winner") ?? [];
+  const rest = Array.from(byBet.entries()).filter(([k]) => k !== "Match Winner").slice(0, 6);
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="card">
+        <div className="card-title">Match odds <span>pre-match snapshot · {active || "–"}</span></div>
+        {books.length > 1 && (
+          <select className="input mb-3 max-w-xs" value={active} onChange={(e) => setBookmaker(e.target.value)}>
+            {books.map((b) => <option key={b} value={b}>{b}</option>)}
+          </select>
+        )}
+        {winner.length === 0 && scoped.length === 0 ? (
+          <p className="text-xs text-faint">No odds backfilled for this fixture — run depth backfill with `--include-odds`.</p>
+        ) : (
+          <>
+            {winner.length > 0 && (
+              <div className="mb-3 grid grid-cols-3 gap-2">
+                {winner.map((w) => (
+                  <div key={w.value_name} className="rounded-xl border border-pitch/25 bg-pitch/5 p-3 text-center">
+                    <p className="text-2xl font-extrabold text-white">{w.odd}</p>
+                    <p className="mt-1 text-[0.65rem] uppercase tracking-wide text-faint">{w.value_name}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {rest.map(([bet, vals]) => (
+              <div key={bet} className="flex items-center justify-between gap-2 border-b border-white/5 py-2 text-xs last:border-0">
+                <span className="text-faint">{bet}</span>
+                <span className="flex gap-3">
+                  {vals.map((v) => <span key={v.value_name}><b className="text-white">{v.odd}</b> <span className="text-faint">{v.value_name}</span></span>)}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+        <p className="mt-3 text-[0.65rem] text-faint">Odds move with the market and are shown for context, not betting advice.</p>
+      </div>
+      <div className="card">
+        <div className="card-title">Missing players <span>{injuries.length} unavailable</span></div>
+        {injuries.length === 0 ? (
+          <p className="text-xs text-faint">No absentees reported for this fixture.</p>
+        ) : (
+          <div className="flex flex-col">
+            {injuries.map((inj, i) => (
+              <div key={i} className="flex items-center justify-between gap-2 border-b border-white/5 py-2 text-xs last:border-0">
+                <span className="font-semibold text-white">🚑 {inj.player_name}</span>
+                <span className="truncate text-faint">{inj.team_name}</span>
+                <span className="shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[0.65rem] font-bold text-amber-300">
+                  {inj.injury_type ?? "Out"}{inj.reason ? ` · ${inj.reason}` : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

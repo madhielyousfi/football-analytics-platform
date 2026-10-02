@@ -461,6 +461,28 @@ def player_season(player_id: int):
         return JSONResponse(content={"summary": None, "matches": []})
 
 
+@app.get("/api/injuries")
+def injuries(fixture_id: Optional[int] = None, league_id: Optional[int] = None,
+             season: Optional[int] = None, team_id: Optional[int] = None):
+    """Unavailable players (injury/suspension) by fixture, league or team."""
+    try:
+        return fetch(
+            """SELECT i.player_id, i.player_name, i.injury_type, i.reason,
+               i.team_id, i.team_name, i.fixture_id, i.fixture_date,
+               f.league_id, f.season
+               FROM raw_af.injuries i
+               LEFT JOIN raw_af.fixtures f ON i.fixture_id = f.fixture_id
+               WHERE (? IS NULL OR i.fixture_id = ?)
+                 AND (? IS NULL OR f.league_id = ?)
+                 AND (? IS NULL OR f.season = ?)
+                 AND (? IS NULL OR i.team_id = ?)
+               ORDER BY i.team_name, i.player_name""",
+            [fixture_id, fixture_id, league_id, league_id,
+             season, season, team_id, team_id])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
 @app.get("/api/fixture-resolve")
 def fixture_resolve(fd_match_id: int):
     """Map a football-data.org match id to its API-Football fixture (or null)."""

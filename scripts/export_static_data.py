@@ -155,6 +155,17 @@ def main() -> None:
                          "af-player-stats.json", "af-odds.json"):
                 write(out / name, [])
         try:
+            write(out / "af-injuries.json", fetch(
+                con,
+                """SELECT i.player_id, i.player_name, i.injury_type, i.reason,
+                   i.team_id, i.team_name, i.fixture_id, i.fixture_date,
+                   f.league_id, f.season
+                   FROM raw_af.injuries i
+                   LEFT JOIN raw_af.fixtures f ON i.fixture_id = f.fixture_id
+                   LIMIT 5000"""))
+        except duckdb.CatalogException:
+            write(out / "af-injuries.json", [])
+        try:
             write(out / "af-top-scorers.json", fetch(
                 con,
                 """SELECT p.player_id, max(p.player_name) AS player_name,

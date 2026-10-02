@@ -13,6 +13,7 @@ EXPECTED = {
     "/api/fixture-lineups", "/api/fixture-stats",
     "/api/fixture-players", "/api/fixture-odds",
     "/api/top-scorers", "/api/player-search", "/api/player-season",
+    "/api/injuries",
 }
 
 

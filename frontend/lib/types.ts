@@ -63,6 +63,12 @@ export type OddRow = {
   bookmaker_id?: number | null; bookmaker_name?: string | null; bet_id?: number | null;
   bet_name?: string | null; value_name?: string | null; odd?: string | null;
 };
+export type InjuryRow = {
+  player_id?: number | null; player_name?: string | null;
+  injury_type?: string | null; reason?: string | null;
+  team_id?: number | null; team_name?: string | null;
+  fixture_id?: number | null; fixture_date?: string | null;
+};
 export type ScorerRow = {
   player_id: number; player_name?: string | null; team_name?: string | null;
   league_name?: string | null; appearances: number; goals: number; assists: number;
