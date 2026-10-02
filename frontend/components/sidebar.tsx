@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Home, Shield, Swords, Trophy, Activity, Cable } from "lucide-react";
+import { CalendarDays, Home, Shield, Swords, Trophy, Activity, Cable, Zap } from "lucide-react";
 import clsx from "clsx";
 import { useSelection } from "./selection";
 
 const NAV = [
   { href: "/", label: "Overview", icon: Home },
+  { href: "/live", label: "Live", icon: Zap },
   { href: "/league", label: "League", icon: Trophy },
   { href: "/teams", label: "Teams", icon: Shield },
   { href: "/matches", label: "Matches", icon: CalendarDays },
@@ -66,7 +67,7 @@ export function Sidebar() {
 export function MobileNav() {
   const path = usePathname();
   return (
-    <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-line bg-[#0D121C]/95 backdrop-blur px-2 py-2 grid grid-cols-6 gap-1">
+    <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-line bg-[#0D121C]/95 backdrop-blur px-2 py-2 grid grid-cols-7 gap-1">
       {NAV.map((n) => {
         const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
         return (

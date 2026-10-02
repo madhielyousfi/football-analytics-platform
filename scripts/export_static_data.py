@@ -73,6 +73,25 @@ def main() -> None:
             runs = []
         write(out / "pipeline-runs.json", runs)
 
+        try:
+            live = fetch(
+                con,
+                """SELECT fixture_id, league_id, league_name, season, round, fixture_date,
+                   status_long, status_short, elapsed,
+                   home_team_id, home_team_name, NULL AS home_crest_url,
+                   away_team_id, away_team_name, NULL AS away_crest_url,
+                   goals_home, goals_away
+                   FROM raw_af.fixtures
+                   WHERE status_short IN ('1H','HT','2H','ET','BT','P','SUSP','INT','LIVE')
+                      OR fixture_date >= current_date - INTERVAL 1 DAY
+                   ORDER BY CASE WHEN status_short IN
+                     ('1H','HT','2H','ET','BT','P','SUSP','INT','LIVE') THEN 0 ELSE 1 END,
+                     fixture_date LIMIT 100""",
+            )
+        except duckdb.CatalogException:
+            live = []
+        write(out / "live.json", live)
+
         pairs = {(r["competition_id"], r["season"]) for r in comps}
         for cid, season in sorted(pairs):
             cs = out / f"c{cid}_s{season}"

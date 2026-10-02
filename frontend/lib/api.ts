@@ -29,6 +29,17 @@ async function apiStatic<T>(path: string, params: Record<string, string | number
       const runs = await getJson<any[]>("pipeline-runs.json");
       return runs.slice(0, Number(params["limit"] ?? 20)) as T;
     }
+    case "/api/live": {
+      let rows: any[] = [];
+      try {
+        rows = await getJson<any[]>("live.json");
+      } catch {
+        return [] as T;
+      }
+      const lid = num(params["league_id"]);
+      if (lid !== null) rows = rows.filter((m) => m.league_id === lid);
+      return rows.slice(0, Number(params["limit"] ?? 100)) as T;
+    }
     case "/api/overview": return getJson<T>(`${cs}/overview.json`);
     case "/api/match-outcomes": return getJson<T>(`${cs}/outcomes.json`);
     case "/api/league-table": return getJson<T>(`${cs}/league-table.json`);

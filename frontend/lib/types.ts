@@ -26,3 +26,10 @@ export type Progression = { match_id: number; match_date: string; match_datetime
 export type Match = { match_id: number; match_date: string; home_team: string; home_crest_url?: string | null; away_team: string; away_crest_url?: string | null; home_goals?: number | null; away_goals?: number | null; match_status: string; matchday?: number | null };
 export type H2H = { matches_played: number; draws: number; selected_a_wins: number; selected_b_wins: number; selected_a_goals: number; selected_b_goals: number; recent_results?: string | null };
 export type PipelineRun = { run_id: string; pipeline_name: string; started_at: string; completed_at?: string | null; status: string; rows_received?: number; rows_inserted?: number; rows_updated?: number; error_message?: string | null; duration_seconds?: number | null };
+export type LiveFixture = {
+  fixture_id: number; league_id: number; league_name: string; season: number; round?: string | null;
+  fixture_date: string; status_long?: string | null; status_short?: string | null; elapsed?: number | null;
+  home_team_id: number; home_team_name: string; home_crest_url?: string | null;
+  away_team_id: number; away_team_name: string; away_crest_url?: string | null;
+  goals_home?: number | null; goals_away?: number | null;
+};

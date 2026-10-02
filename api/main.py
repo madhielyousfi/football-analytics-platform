@@ -279,19 +279,36 @@ LIVE_STATUSES = ("1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE")
 def live(league_id: Optional[int] = None, limit: int = Query(100, le=500)):
     """Live now + recent + upcoming fixtures from the API-Football backfill."""
     placeholders = ", ".join("?" for _ in LIVE_STATUSES)
+    params: list = [league_id, league_id, *LIVE_STATUSES, *LIVE_STATUSES, limit]
+    where = f"""WHERE (? IS NULL OR f.league_id = ?)
+                 AND (f.status_short IN ({placeholders})
+                      OR f.fixture_date >= current_date - INTERVAL 1 DAY)
+               ORDER BY CASE WHEN f.status_short IN ({placeholders}) THEN 0 ELSE 1 END,
+                        f.fixture_date LIMIT ?"""
+    enriched = f"""SELECT f.fixture_id, f.league_id, f.league_name, f.season, f.round,
+               f.fixture_date, f.status_long, f.status_short, f.elapsed,
+               f.home_team_id, f.home_team_name, hd.crest_url AS home_crest_url,
+               f.away_team_id, f.away_team_name, ad.crest_url AS away_crest_url,
+               f.goals_home, f.goals_away
+               FROM raw_af.fixtures f
+               LEFT JOIN metadata.team_map hm ON f.home_team_id = hm.af_team_id
+               LEFT JOIN marts.dim_team hd ON hm.fd_team_id = hd.team_id
+               LEFT JOIN metadata.team_map am ON f.away_team_id = am.af_team_id
+               LEFT JOIN marts.dim_team ad ON am.fd_team_id = ad.team_id
+               {where}"""
+    plain = f"""SELECT f.fixture_id, f.league_id, f.league_name, f.season, f.round,
+               f.fixture_date, f.status_long, f.status_short, f.elapsed,
+               f.home_team_id, f.home_team_name, NULL AS home_crest_url,
+               f.away_team_id, f.away_team_name, NULL AS away_crest_url,
+               f.goals_home, f.goals_away
+               FROM raw_af.fixtures f
+               {where}"""
     try:
-        return fetch(
-            f"""SELECT fixture_id, league_id, league_name, season, round, fixture_date,
-               status_long, status_short, elapsed,
-               home_team_id, home_team_name, away_team_id, away_team_name,
-               goals_home, goals_away
-               FROM raw_af.fixtures
-               WHERE (? IS NULL OR league_id = ?)
-                 AND (status_short IN ({placeholders})
-                      OR fixture_date >= current_date - INTERVAL 1 DAY)
-               ORDER BY CASE WHEN status_short IN ({placeholders}) THEN 0 ELSE 1 END,
-                        fixture_date LIMIT ?""",
-            [league_id, league_id, *LIVE_STATUSES, *LIVE_STATUSES, limit])
+        return fetch(enriched, params)
+    except HTTPException:
+        pass
+    try:
+        return fetch(plain, params)
     except HTTPException:
         return JSONResponse(content=[])
 
