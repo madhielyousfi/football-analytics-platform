@@ -180,6 +180,8 @@ make dbt-build
 make dashboard
 make test
 make pipeline
+make af-backfill
+make live-poll
 ```
 
 `make pipeline` performs ingestion followed by `dbt build`. That dbt command includes data tests, so it does not run `dbt test` again. `make dbt-run` and `make dbt-test` are available for narrower checks.
@@ -196,6 +198,8 @@ cd ..
 The [pipeline workflow](.github/workflows/pipeline.yml) runs daily at 05:17 UTC or manually. Set repository secret `FOOTBALL_API_TOKEN` before using it. Its manual inputs select a competition and season; scheduled runs use repository variables `FOOTBALL_COMPETITION` and `FOOTBALL_SEASON` if set, otherwise `PL` and `2026`. Update the season variable when a new season begins. The workflow runs pytest, ingestion, and `dbt build`, then uploads `data/football.duckdb` as a **14-day workflow artifact**.
 
 GitHub-hosted runners are ephemeral. The scheduled workflow starts from a fresh database each day, so it performs a full season load despite the local runner's incremental support. Its database does **not** persist on the runner and does not automatically update a local dashboard. Download the successful run's `football-analytics-<run id>` artifact from the Actions page, extract `football.duckdb` into `data/`, and run the dashboard against it. Artifact retention is for demonstrations; longer-lived or deployed analytics storage can be added later.
+
+The [live-poll workflow](.github/workflows/live-poll.yml) runs every 30 minutes on Sat/Sun 12:00–22:30 UTC or manually. Set repository secret `API_FOOTBALL_KEY` (free api-sports key) before using it. Each run restores `data/football.duckdb` from the previous `football-live-db` artifact, refreshes today's league fixtures plus events for live/finished matches inside the 100/day quota (`make live-poll` locally), then re-uploads the DB for the next run. Idle runs cost ~1 API call; quota exhaustion records a FAILED run and exits quietly until the next window.
 
 ## Verify the load
 

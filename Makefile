@@ -20,6 +20,9 @@ demo-data:
 af-backfill:
 	$(PYTHON) -m ingestion.run_af_backfill --league 39 --season 2026 --max-events 10
 
+live-poll:
+	$(PYTHON) -m ingestion.run_live_poll --league 39
+
 web-static: demo-data
 	NEXT_PUBLIC_DATA_MODE=static npm --prefix frontend run build
 

@@ -1,0 +1,61 @@
+name: Live poll (API-Football)
+
+# Cheap match-window poller: restores the warehouse from the latest artifact,
+# refreshes today's fixtures + live/finished events inside the quota budget,
+# then re-uploads the DB for the next run. Skipped without API_FOOTBALL_KEY.
+
+on:
+  schedule:
+    # Every 30 min, Sat/Sun 12:00-22:30 UTC (European match windows).
+    - cron: '*/30 12-22 * * 6,0'
+  workflow_dispatch:
+    inputs:
+      league:
+        description: API-Football league id
+        required: false
+        default: '39'
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: live-poll
+  cancel-in-progress: true
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      DUCKDB_PATH: data/football.duckdb
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore warehouse from latest poll
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: live-poll.yml
+          name: football-live-db
+          path: data/
+          if_no_artifact_found: warn
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install poller dependencies
+        run: python -m pip install duckdb requests python-dotenv
+
+      - name: Run live poll
+        if: env.API_FOOTBALL_KEY != ''
+        run: python -m ingestion.run_live_poll --league ${{ inputs.league || '39' }}
+
+      - name: Preserve warehouse for next poll
+        uses: actions/upload-artifact@v4
+        with:
+          name: football-live-db
+          path: data/football.duckdb
+          if-no-files-found: warn
+          retention-days: 14
