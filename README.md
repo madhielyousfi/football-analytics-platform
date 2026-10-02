@@ -128,7 +128,16 @@ The dbt tests also check each mart's business-key grain and reconcile aggregate 
 
 ## Dashboard
 
-Run ingestion and `dbt build` first, then from the repository root:
+Two frontends read the same tested dbt marts:
+
+- **Production web (new):** FastAPI (`api/main.py`, `make api` on `:8000`) serving
+  read-only JSON over DuckDB, plus a responsive Next.js 14 + Tailwind + Recharts
+  app in `frontend/` (`make web` on `:3000`). Six routes — Overview, League,
+  Teams, Matches, Head-to-Head, Pipeline — with shared sidebar/bottom-nav,
+  skeleton loading, and typed API client. See [docs/frontend.md](docs/frontend.md)
+  and UI rules in [frontend/SKILLS.md](frontend/SKILLS.md).
+- **Streamlit (legacy, kept for data-checks):** run ingestion and `dbt build`
+  first, then from the repository root:
 
 ```bash
 streamlit run dashboard/app.py

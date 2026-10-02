@@ -8,3 +8,5 @@ pytest>=8,<10
 pandas>=2.2,<3
 streamlit>=1.64,<2
 plotly>=6,<7
+fastapi>=0.110,<1
+uvicorn[standard]>=0.29,<1

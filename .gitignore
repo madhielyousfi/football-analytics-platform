@@ -6,9 +6,15 @@ __pycache__/
 *.py[cod]
 data/*.duckdb
 data/*.duckdb.*
+!data/demo.duckdb
+frontend/public/data/
 logs/*
 !logs/.gitkeep
 football_dbt/target/
 football_dbt/logs/
 football_dbt/dbt_packages/
 football_dbt/.user.yml
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
