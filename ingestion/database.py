@@ -91,11 +91,12 @@ def create_tables(connection: duckdb.DuckDBPyConnection) -> None:
     )""")
 
 
-def start_run(connection: duckdb.DuckDBPyConnection, run_id: str) -> None:
+def start_run(connection: duckdb.DuckDBPyConnection, run_id: str,
+              pipeline: str = "football_ingestion") -> None:
     connection.execute("""INSERT INTO metadata.pipeline_runs
         (run_id, pipeline_name, started_at, status)
-        VALUES (?, 'football_ingestion', ?, 'RUNNING')""",
-        [run_id, datetime.now(timezone.utc)])
+        VALUES (?, ?, ?, 'RUNNING')""",
+        [run_id, pipeline, datetime.now(timezone.utc)])
 
 
 def finish_run(connection: duckdb.DuckDBPyConnection, run_id: str, status: str,

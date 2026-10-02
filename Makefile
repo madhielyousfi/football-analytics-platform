@@ -17,6 +17,9 @@ web-build:
 demo-data:
 	$(PYTHON) scripts/export_static_data.py --db data/demo.duckdb --out frontend/public/data
 
+af-backfill:
+	$(PYTHON) -m ingestion.run_af_backfill --league 39 --season 2026 --max-events 10
+
 web-static: demo-data
 	NEXT_PUBLIC_DATA_MODE=static npm --prefix frontend run build
 

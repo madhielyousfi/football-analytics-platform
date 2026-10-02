@@ -272,6 +272,30 @@ def head_to_head_matches(competition_id: int, season: int, team_a_id: int, team_
         [competition_id, season, team_a_id, team_b_id, team_b_id, team_a_id])
 
 
+LIVE_STATUSES = ("1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE")
+
+
+@app.get("/api/live")
+def live(league_id: Optional[int] = None, limit: int = Query(100, le=500)):
+    """Live now + recent + upcoming fixtures from the API-Football backfill."""
+    placeholders = ", ".join("?" for _ in LIVE_STATUSES)
+    try:
+        return fetch(
+            f"""SELECT fixture_id, league_id, league_name, season, round, fixture_date,
+               status_long, status_short, elapsed,
+               home_team_id, home_team_name, away_team_id, away_team_name,
+               goals_home, goals_away
+               FROM raw_af.fixtures
+               WHERE (? IS NULL OR league_id = ?)
+                 AND (status_short IN ({placeholders})
+                      OR fixture_date >= current_date - INTERVAL 1 DAY)
+               ORDER BY CASE WHEN status_short IN ({placeholders}) THEN 0 ELSE 1 END,
+                        fixture_date LIMIT ?""",
+            [league_id, league_id, *LIVE_STATUSES, *LIVE_STATUSES, limit])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
 @app.get("/api/pipeline-runs")
 def pipeline_runs(limit: int = Query(20, le=100)):
     try:
