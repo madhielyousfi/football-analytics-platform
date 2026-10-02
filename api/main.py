@@ -392,6 +392,75 @@ def fixture_odds(fixture_id: int, bookmaker: Optional[str] = None):
         return JSONResponse(content=[])
 
 
+@app.get("/api/top-scorers")
+def top_scorers(league_id: Optional[int] = None, season: Optional[int] = None,
+                limit: int = Query(20, le=100)):
+    """Goals + assists leaders aggregated from backfilled player stats."""
+    try:
+        return fetch(
+            """SELECT p.player_id, max(p.player_name) AS player_name,
+               max(p.team_name) AS team_name, max(f.league_name) AS league_name,
+               max(f.league_id) AS league_id, max(f.season) AS season,
+               count(*) AS appearances,
+               coalesce(sum(p.goals), 0) AS goals,
+               coalesce(sum(p.assists), 0) AS assists,
+               coalesce(sum(p.minutes), 0) AS minutes,
+               round(avg(try_cast(p.rating AS DOUBLE)), 2) AS avg_rating
+               FROM raw_af.player_stats p
+               JOIN raw_af.fixtures f ON p.fixture_id = f.fixture_id
+               WHERE (? IS NULL OR f.league_id = ?)
+                 AND (? IS NULL OR f.season = ?)
+               GROUP BY p.player_id
+               ORDER BY goals DESC, assists DESC, minutes DESC LIMIT ?""",
+            [league_id, league_id, season, season, limit])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
+@app.get("/api/player-search")
+def player_search(q: str = Query("", min_length=2), limit: int = Query(20, le=50)):
+    """Distinct players by name prefix for selectors and comparison."""
+    try:
+        return fetch(
+            """SELECT player_id, max(player_name) AS player_name,
+               max(team_name) AS team_name, count(*) AS appearances
+               FROM raw_af.player_stats
+               WHERE lower(player_name) LIKE lower(?) || '%'
+               GROUP BY player_id ORDER BY appearances DESC LIMIT ?""",
+            [q, limit])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
+@app.get("/api/player-season")
+def player_season(player_id: int):
+    """Season aggregates + per-match log for one player."""
+    try:
+        summary = fetch(
+            """SELECT max(p.player_name) AS player_name, max(p.team_name) AS team_name,
+               max(p.position) AS position, count(*) AS appearances,
+               coalesce(sum(p.minutes), 0) AS minutes,
+               coalesce(sum(p.goals), 0) AS goals,
+               coalesce(sum(p.assists), 0) AS assists,
+               coalesce(sum(p.shots_total), 0) AS shots_total,
+               coalesce(sum(p.shots_on), 0) AS shots_on,
+               round(avg(try_cast(p.rating AS DOUBLE)), 2) AS avg_rating,
+               coalesce(sum(p.yellow), 0) AS yellow, coalesce(sum(p.red), 0) AS red
+               FROM raw_af.player_stats p WHERE p.player_id = ?""", [player_id])
+        if not summary or summary[0]["appearances"] == 0:
+            return {"summary": None, "matches": []}
+        matches = fetch(
+            """SELECT p.fixture_id, f.fixture_date, f.home_team_name, f.away_team_name,
+               f.goals_home, f.goals_away, p.minutes, p.rating, p.goals, p.assists,
+               p.shots_total, p.shots_on, p.team_name
+               FROM raw_af.player_stats p
+               JOIN raw_af.fixtures f ON p.fixture_id = f.fixture_id
+               WHERE p.player_id = ? ORDER BY f.fixture_date DESC""", [player_id])
+        return {"summary": summary[0], "matches": matches}
+    except HTTPException:
+        return JSONResponse(content={"summary": None, "matches": []})
+
+
 @app.get("/api/fixture-resolve")
 def fixture_resolve(fd_match_id: int):
     """Map a football-data.org match id to its API-Football fixture (or null)."""

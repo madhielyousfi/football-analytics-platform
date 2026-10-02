@@ -74,6 +74,46 @@ async function apiStatic<T>(path: string, params: Record<string, string | number
       }
       return kept as T;
     }
+    case "/api/top-scorers": {
+      let rows = await getJson<any[]>("af-top-scorers.json").catch(() => []);
+      const lid = num(params["league_id"]);
+      const sno = num(params["season"]);
+      if (lid !== null) rows = rows.filter((r) => r.league_id === lid);
+      if (sno !== null) rows = rows.filter((r) => r.season === sno);
+      return rows.slice(0, Number(params["limit"] ?? 20)) as T;
+    }
+    case "/api/player-search": {
+      const q = String(params["q"] ?? "").toLowerCase();
+      if (q.length < 2) return [] as T;
+      const rows = await getJson<any[]>("af-players.json").catch(() => []);
+      return rows.filter((r) => String(r.player_name).toLowerCase().startsWith(q))
+        .slice(0, Number(params["limit"] ?? 20)) as T;
+    }
+    case "/api/player-season": {
+      const pid = Number(params["player_id"]);
+      const matches = await getJson<any[]>("af-player-matches.json").catch(() => []);
+      const mine = matches.filter((m) => m.player_id === pid);
+      if (mine.length === 0) return { summary: null, matches: [] } as T;
+      const sum = (k: string) => mine.reduce((a, m) => a + (Number(m[k]) || 0), 0);
+      const ratings = mine.map((m) => Number(m.rating)).filter((n) => Number.isFinite(n));
+      return {
+        summary: {
+          player_name: mine[0].player_name ?? null,
+          team_name: mine[0].team_name,
+          position: null,
+          appearances: mine.length,
+          minutes: sum("minutes"),
+          goals: sum("goals"),
+          assists: sum("assists"),
+          shots_total: sum("shots_total"),
+          shots_on: sum("shots_on"),
+          avg_rating: ratings.length ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 100) / 100 : null,
+          yellow: 0,
+          red: 0,
+        },
+        matches: mine,
+      } as T;
+    }
     case "/api/overview": return getJson<T>(`${cs}/overview.json`);
     case "/api/match-outcomes": return getJson<T>(`${cs}/outcomes.json`);
     case "/api/league-table": return getJson<T>(`${cs}/league-table.json`);

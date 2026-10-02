@@ -63,3 +63,26 @@ export type OddRow = {
   bookmaker_id?: number | null; bookmaker_name?: string | null; bet_id?: number | null;
   bet_name?: string | null; value_name?: string | null; odd?: string | null;
 };
+export type ScorerRow = {
+  player_id: number; player_name?: string | null; team_name?: string | null;
+  league_name?: string | null; appearances: number; goals: number; assists: number;
+  minutes: number; avg_rating?: number | null;
+};
+export type PlayerEntry = {
+  player_id: number; player_name?: string | null; team_name?: string | null; appearances: number;
+};
+export type PlayerMatch = {
+  fixture_id: number; fixture_date: string; home_team_name: string; away_team_name: string;
+  goals_home?: number | null; goals_away?: number | null; team_name?: string | null;
+  minutes?: number | null; rating?: string | number | null; goals?: number | null;
+  assists?: number | null; shots_total?: number | null; shots_on?: number | null;
+};
+export type PlayerSeason = {
+  summary: {
+    player_name?: string | null; team_name?: string | null; position?: string | null;
+    appearances: number; minutes: number; goals: number; assists: number;
+    shots_total: number; shots_on: number; avg_rating?: number | null;
+    yellow: number; red: number;
+  } | null;
+  matches: PlayerMatch[];
+};

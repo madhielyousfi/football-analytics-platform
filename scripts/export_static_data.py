@@ -154,6 +154,40 @@ def main() -> None:
             for name in ("af-lineups.json", "af-fixture-stats.json",
                          "af-player-stats.json", "af-odds.json"):
                 write(out / name, [])
+        try:
+            write(out / "af-top-scorers.json", fetch(
+                con,
+                """SELECT p.player_id, max(p.player_name) AS player_name,
+                   max(p.team_name) AS team_name, max(f.league_name) AS league_name,
+                   max(f.league_id) AS league_id, max(f.season) AS season,
+                   count(*) AS appearances,
+                   coalesce(sum(p.goals), 0) AS goals,
+                   coalesce(sum(p.assists), 0) AS assists,
+                   coalesce(sum(p.minutes), 0) AS minutes,
+                   round(avg(try_cast(p.rating AS DOUBLE)), 2) AS avg_rating
+                   FROM raw_af.player_stats p
+                   JOIN raw_af.fixtures f ON p.fixture_id = f.fixture_id
+                   GROUP BY p.player_id
+                   ORDER BY goals DESC, assists DESC LIMIT 500"""))
+            write(out / "af-players.json", fetch(
+                con,
+                """SELECT player_id, max(player_name) AS player_name,
+                   max(team_name) AS team_name, count(*) AS appearances
+                   FROM raw_af.player_stats
+                   GROUP BY player_id ORDER BY appearances DESC LIMIT 5000"""))
+            write(out / "af-player-matches.json", fetch(
+                con,
+                """SELECT p.player_id, p.player_name, p.fixture_id, f.fixture_date,
+                   f.home_team_name, f.away_team_name, f.goals_home, f.goals_away,
+                   p.team_name, p.minutes, p.rating, p.goals, p.assists,
+                   p.shots_total, p.shots_on
+                   FROM raw_af.player_stats p
+                   JOIN raw_af.fixtures f ON p.fixture_id = f.fixture_id
+                   ORDER BY f.fixture_date DESC LIMIT 20000"""))
+        except duckdb.CatalogException:
+            for name in ("af-top-scorers.json", "af-players.json",
+                         "af-player-matches.json"):
+                write(out / name, [])
 
         pairs = {(r["competition_id"], r["season"]) for r in comps}
         for cid, season in sorted(pairs):
