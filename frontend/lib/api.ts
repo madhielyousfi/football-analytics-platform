@@ -56,6 +56,24 @@ async function apiStatic<T>(path: string, params: Record<string, string | number
       const af = map[String(params["fd_match_id"])];
       return { fixture_id: af ?? null } as T;
     }
+    case "/api/fixture-lineups":
+    case "/api/fixture-stats":
+    case "/api/fixture-players":
+    case "/api/fixture-odds": {
+      const file = {
+        "/api/fixture-lineups": "af-lineups.json",
+        "/api/fixture-stats": "af-fixture-stats.json",
+        "/api/fixture-players": "af-player-stats.json",
+        "/api/fixture-odds": "af-odds.json",
+      }[path];
+      const rows = await getJson<any[]>(file).catch(() => []);
+      const fid = Number(params["fixture_id"]);
+      const kept = rows.filter((r) => r.fixture_id === fid);
+      if (path === "/api/fixture-odds" && params["bookmaker"]) {
+        return kept.filter((r) => r.bookmaker_name === params["bookmaker"]) as T;
+      }
+      return kept as T;
+    }
     case "/api/overview": return getJson<T>(`${cs}/overview.json`);
     case "/api/match-outcomes": return getJson<T>(`${cs}/outcomes.json`);
     case "/api/league-table": return getJson<T>(`${cs}/league-table.json`);

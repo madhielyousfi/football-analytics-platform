@@ -128,6 +128,32 @@ def main() -> None:
         write(out / "af-events.json", af_events)
         write(out / "af-resolve.json",
               {str(r["fd_match_id"]): r["fixture_id"] for r in resolve_rows})
+        try:
+            write(out / "af-lineups.json", fetch(
+                con,
+                """SELECT fixture_id, team_id, team_name, formation, coach_name,
+                   player_id, player_name, number, position, grid, is_starting
+                   FROM raw_af.lineups LIMIT 20000"""))
+            write(out / "af-fixture-stats.json", fetch(
+                con,
+                """SELECT fixture_id, team_id, team_name, stat_type, stat_value
+                   FROM raw_af.fixture_stats LIMIT 20000"""))
+            write(out / "af-player-stats.json", fetch(
+                con,
+                """SELECT fixture_id, team_id, team_name, player_id, player_name,
+                   number, position, minutes, rating, goals, assists, shots_total,
+                   shots_on, passes_total, passes_key, passes_accuracy, tackles,
+                   interceptions, duels_total, duels_won, dribbles_attempts,
+                   dribbles_success, fouls_drawn, fouls_committed, yellow, red
+                   FROM raw_af.player_stats LIMIT 20000"""))
+            write(out / "af-odds.json", fetch(
+                con,
+                """SELECT fixture_id, bookmaker_id, bookmaker_name, bet_id,
+                   bet_name, value_name, odd FROM raw_af.odds LIMIT 20000"""))
+        except duckdb.CatalogException:
+            for name in ("af-lineups.json", "af-fixture-stats.json",
+                         "af-player-stats.json", "af-odds.json"):
+                write(out / name, [])
 
         pairs = {(r["competition_id"], r["season"]) for r in comps}
         for cid, season in sorted(pairs):

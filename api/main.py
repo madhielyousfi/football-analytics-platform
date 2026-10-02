@@ -337,6 +337,61 @@ def fixture_detail(fixture_id: int):
         return JSONResponse(content={"fixture": None, "events": []})
 
 
+@app.get("/api/fixture-lineups")
+def fixture_lineups(fixture_id: int):
+    """Starting XIs + benches with formations from the depth backfill."""
+    try:
+        return fetch(
+            """SELECT team_id, team_name, formation, coach_name, player_id,
+               player_name, number, position, grid, is_starting
+               FROM raw_af.lineups WHERE fixture_id = ?
+               ORDER BY team_id, is_starting DESC, number""", [fixture_id])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
+@app.get("/api/fixture-stats")
+def fixture_stats(fixture_id: int):
+    """Head-to-head team statistics (possession, shots, corners, ...) per team."""
+    try:
+        return fetch(
+            """SELECT team_id, team_name, stat_type, stat_value
+               FROM raw_af.fixture_stats WHERE fixture_id = ?""", [fixture_id])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
+@app.get("/api/fixture-players")
+def fixture_players(fixture_id: int):
+    """Per-player match statistics ordered by minutes played."""
+    try:
+        return fetch(
+            """SELECT team_id, team_name, player_id, player_name, number, position,
+               minutes, rating, goals, assists, shots_total, shots_on,
+               passes_total, passes_key, passes_accuracy, tackles, interceptions,
+               duels_total, duels_won, dribbles_attempts, dribbles_success,
+               fouls_drawn, fouls_committed, yellow, red
+               FROM raw_af.player_stats WHERE fixture_id = ?
+               ORDER BY minutes DESC NULLS LAST, rating DESC NULLS LAST""",
+            [fixture_id])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
+@app.get("/api/fixture-odds")
+def fixture_odds(fixture_id: int, bookmaker: Optional[str] = None):
+    """Pre-match odds values, optionally filtered to one bookmaker."""
+    try:
+        return fetch(
+            """SELECT bookmaker_id, bookmaker_name, bet_id, bet_name,
+               value_name, odd FROM raw_af.odds
+               WHERE fixture_id = ? AND (? IS NULL OR bookmaker_name = ?)
+               ORDER BY bookmaker_name, bet_id, value_name""",
+            [fixture_id, bookmaker, bookmaker])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
 @app.get("/api/fixture-resolve")
 def fixture_resolve(fd_match_id: int):
     """Map a football-data.org match id to its API-Football fixture (or null)."""

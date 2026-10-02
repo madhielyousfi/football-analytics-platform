@@ -44,3 +44,22 @@ export type FixtureDetail = {
   fixture: LiveFixture | null;
   events: MatchEvent[];
 };
+export type LineupRow = {
+  team_id: number; team_name: string; formation?: string | null; coach_name?: string | null;
+  player_id?: number | null; player_name?: string | null; number?: number | null;
+  position?: string | null; grid?: string | null; is_starting: boolean;
+};
+export type TeamStat = { team_id: number; team_name: string; stat_type: string; stat_value?: string | null };
+export type PlayerStatRow = {
+  team_id: number; team_name: string; player_id?: number | null; player_name?: string | null;
+  number?: number | null; position?: string | null; minutes?: number | null; rating?: string | null;
+  goals?: number | null; assists?: number | null; shots_total?: number | null; shots_on?: number | null;
+  passes_total?: number | null; passes_key?: number | null; passes_accuracy?: string | null;
+  tackles?: number | null; interceptions?: number | null; duels_total?: number | null; duels_won?: number | null;
+  dribbles_attempts?: number | null; dribbles_success?: number | null;
+  fouls_drawn?: number | null; fouls_committed?: number | null; yellow?: number | null; red?: number | null;
+};
+export type OddRow = {
+  bookmaker_id?: number | null; bookmaker_name?: string | null; bet_id?: number | null;
+  bet_name?: string | null; value_name?: string | null; odd?: string | null;
+};
