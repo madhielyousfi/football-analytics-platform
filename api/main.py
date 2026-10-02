@@ -313,6 +313,56 @@ def live(league_id: Optional[int] = None, limit: int = Query(100, le=500)):
         return JSONResponse(content=[])
 
 
+@app.get("/api/fixture-detail")
+def fixture_detail(fixture_id: int):
+    """Header + event timeline for one API-Football fixture."""
+    try:
+        header = fetch(
+            """SELECT fixture_id, league_id, league_name, season, round, fixture_date,
+               status_long, status_short, elapsed,
+               home_team_id, home_team_name, away_team_id, away_team_name,
+               goals_home, goals_away
+               FROM raw_af.fixtures WHERE fixture_id = ?""", [fixture_id])
+        if not header:
+            raise HTTPException(status_code=404, detail="Fixture not backfilled yet")
+        events = fetch(
+            """SELECT elapsed, extra_minute, team_id, team_name, player_id, player_name,
+               assist_player_id, assist_player_name, event_type, detail, comments
+               FROM raw_af.events WHERE fixture_id = ?
+               ORDER BY elapsed, extra_minute""", [fixture_id])
+        return {"fixture": header[0], "events": events}
+    except HTTPException:
+        raise
+    except Exception:
+        return JSONResponse(content={"fixture": None, "events": []})
+
+
+@app.get("/api/fixture-resolve")
+def fixture_resolve(fd_match_id: int):
+    """Map a football-data.org match id to its API-Football fixture (or null)."""
+    try:
+        rows = fetch(
+            """SELECT m.match_date, hm.af_team_id AS af_home, am.af_team_id AS af_away
+               FROM marts.fact_matches m
+               LEFT JOIN metadata.team_map hm ON m.home_team_id = hm.fd_team_id
+               LEFT JOIN metadata.team_map am ON m.away_team_id = am.fd_team_id
+               WHERE m.match_id = ?""", [fd_match_id])
+        if not rows or rows[0]["af_home"] is None:
+            return {"fixture_id": None}
+        match_date = str(rows[0]["match_date"])[:10]
+        found = fetch(
+            """SELECT fixture_id FROM raw_af.fixtures
+               WHERE home_team_id = ? AND away_team_id = ?
+                 AND cast(fixture_date AS DATE)
+                     BETWEEN cast(? AS DATE) - INTERVAL 1 DAY
+                         AND cast(? AS DATE) + INTERVAL 1 DAY
+               LIMIT 1""",
+            [rows[0]["af_home"], rows[0]["af_away"], match_date, match_date])
+        return {"fixture_id": found[0]["fixture_id"] if found else None}
+    except HTTPException:
+        return JSONResponse(content={"fixture_id": None})
+
+
 @app.get("/api/pipeline-runs")
 def pipeline_runs(limit: int = Query(20, le=100)):
     try:

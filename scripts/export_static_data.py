@@ -92,6 +92,43 @@ def main() -> None:
             live = []
         write(out / "live.json", live)
 
+        try:
+            af_fixtures = fetch(
+                con,
+                """SELECT fixture_id, league_id, league_name, season, round, fixture_date,
+                   status_long, status_short, elapsed,
+                   home_team_id, home_team_name, NULL AS home_crest_url,
+                   away_team_id, away_team_name, NULL AS away_crest_url,
+                   goals_home, goals_away
+                   FROM raw_af.fixtures ORDER BY fixture_date DESC LIMIT 1000""",
+            )
+            af_events = fetch(
+                con,
+                """SELECT fixture_id, elapsed, extra_minute, team_id, team_name,
+                   player_id, player_name, assist_player_id, assist_player_name,
+                   event_type, detail, comments
+                   FROM raw_af.events ORDER BY fixture_id, elapsed LIMIT 20000""",
+            )
+            resolve_rows = fetch(
+                con,
+                """SELECT m.match_id AS fd_match_id, f.fixture_id AS fixture_id
+                   FROM marts.fact_matches m
+                   JOIN metadata.team_map hm ON m.home_team_id = hm.fd_team_id
+                   JOIN metadata.team_map am ON m.away_team_id = am.fd_team_id
+                   JOIN raw_af.fixtures f
+                     ON f.home_team_id = hm.af_team_id
+                     AND f.away_team_id = am.af_team_id
+                     AND cast(f.fixture_date AS DATE)
+                         BETWEEN m.match_date - INTERVAL 1 DAY
+                             AND m.match_date + INTERVAL 1 DAY""",
+            )
+        except duckdb.CatalogException:
+            af_fixtures, af_events, resolve_rows = [], [], []
+        write(out / "af-fixtures.json", af_fixtures)
+        write(out / "af-events.json", af_events)
+        write(out / "af-resolve.json",
+              {str(r["fd_match_id"]): r["fixture_id"] for r in resolve_rows})
+
         pairs = {(r["competition_id"], r["season"]) for r in comps}
         for cid, season in sorted(pairs):
             cs = out / f"c{cid}_s{season}"

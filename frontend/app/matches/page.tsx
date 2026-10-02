@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { useSelection } from "@/components/selection";
 import { MobileFilters } from "@/components/sidebar";
@@ -70,7 +71,8 @@ export default function MatchesPage() {
       {list.isError ? <Empty msg="API unreachable. Run `make api` first." /> : (
         <div className="card !p-3">
           {(list.data ?? []).map((m) => (
-            <div key={m.match_id} className="flex items-center gap-2 border-b border-white/5 px-2 py-3 text-xs last:border-0 sm:text-sm">
+            <Link key={m.match_id} href={`/fixture/by-fd/${m.match_id}`} className="block hover:bg-white/[0.02]">
+            <div className="flex items-center gap-2 border-b border-white/5 px-2 py-3 text-xs last:border-0 sm:text-sm">
               <span className="flex min-w-0 flex-1 items-center gap-2 font-medium text-slate-200"><Crest name={m.home_team} url={m.home_crest_url} size={20} /><span className="truncate">{m.home_team}</span></span>
               <span className="flex shrink-0 flex-col items-center gap-1">
                 {m.home_goals !== null && m.home_goals !== undefined
@@ -80,6 +82,7 @@ export default function MatchesPage() {
               </span>
               <span className="flex min-w-0 flex-1 items-center justify-end gap-2 font-medium text-slate-200"><span className="truncate">{m.away_team}</span><Crest name={m.away_team} url={m.away_crest_url} size={20} /></span>
             </div>
+            </Link>
           ))}
           {list.isLoading && <div className="skeleton h-40" />}
           {!list.isLoading && (list.data ?? []).length === 0 && <p className="p-4 text-center text-sm text-muted">No matches for these filters.</p>}

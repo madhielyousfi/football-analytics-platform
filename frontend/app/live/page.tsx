@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { PageHeader, Empty, Crest, SkeletonGrid } from "@/components/ui";
 import type { LiveFixture } from "@/lib/types";
@@ -22,6 +23,7 @@ function kickoff(iso: string): string {
 function Row({ m }: { m: LiveFixture }) {
   const live = isLive(m);
   return (
+    <Link href={`/fixture/${m.fixture_id}`} className="block hover:bg-white/[0.02]">
     <div className="flex items-center gap-2 border-b border-white/5 px-2 py-3 text-xs last:border-0 sm:text-sm">
       <span className="flex min-w-0 flex-1 items-center gap-2 font-medium text-slate-200">
         <Crest name={m.home_team_name} url={m.home_crest_url} size={20} />
@@ -45,6 +47,7 @@ function Row({ m }: { m: LiveFixture }) {
         <Crest name={m.away_team_name} url={m.away_crest_url} size={20} />
       </span>
     </div>
+    </Link>
   );
 }
 

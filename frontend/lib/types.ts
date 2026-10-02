@@ -33,3 +33,14 @@ export type LiveFixture = {
   away_team_id: number; away_team_name: string; away_crest_url?: string | null;
   goals_home?: number | null; goals_away?: number | null;
 };
+export type MatchEvent = {
+  elapsed?: number | null; extra_minute?: number | null;
+  team_id?: number | null; team_name?: string | null;
+  player_id?: number | null; player_name?: string | null;
+  assist_player_id?: number | null; assist_player_name?: string | null;
+  event_type?: string | null; detail?: string | null; comments?: string | null;
+};
+export type FixtureDetail = {
+  fixture: LiveFixture | null;
+  events: MatchEvent[];
+};

@@ -9,6 +9,7 @@ EXPECTED = {
     "/api/home-away", "/api/goal-trends", "/api/team-progression",
     "/api/match-filter-options", "/api/matches", "/api/head-to-head",
     "/api/head-to-head-matches", "/api/pipeline-runs", "/api/live",
+    "/api/fixture-detail", "/api/fixture-resolve",
 }
 
 

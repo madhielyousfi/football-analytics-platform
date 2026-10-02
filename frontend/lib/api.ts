@@ -40,6 +40,22 @@ async function apiStatic<T>(path: string, params: Record<string, string | number
       if (lid !== null) rows = rows.filter((m) => m.league_id === lid);
       return rows.slice(0, Number(params["limit"] ?? 100)) as T;
     }
+    case "/api/fixture-detail": {
+      const all = await getJson<any[]>("af-fixtures.json").catch(() => []);
+      const fx = all.find((f) => f.fixture_id === Number(params["fixture_id"]));
+      if (!fx) return { fixture: null, events: [] } as T;
+      const events = await getJson<any[]>("af-events.json").catch(() => []);
+      return {
+        fixture: fx,
+        events: events.filter((e) => e.fixture_id === fx.fixture_id),
+      } as T;
+    }
+    case "/api/fixture-resolve": {
+      const map = await getJson<Record<string, number>>("af-resolve.json").catch(
+        (): Record<string, number> => ({}));
+      const af = map[String(params["fd_match_id"])];
+      return { fixture_id: af ?? null } as T;
+    }
     case "/api/overview": return getJson<T>(`${cs}/overview.json`);
     case "/api/match-outcomes": return getJson<T>(`${cs}/outcomes.json`);
     case "/api/league-table": return getJson<T>(`${cs}/league-table.json`);
