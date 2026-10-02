@@ -7,6 +7,18 @@ import pytest
 from dashboard import bootstrap
 
 
+@pytest.mark.parametrize(
+    ("detail", "expected"),
+    [
+        ("RuntimeError: API HTTP 403 for /competitions", "Check the Cloud API token"),
+        ("RuntimeError: API HTTP 429 for /competitions", "rate limit reached"),
+        ("RuntimeError: API request failed for /competitions", "Could not reach"),
+    ],
+)
+def test_safe_failure_reason(detail: str, expected: str) -> None:
+    assert expected in bootstrap._safe_failure_reason("ingestion", detail)
+
+
 def test_ready_warehouse_does_not_trigger_build(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FOOTBALL_AUTO_BOOTSTRAP", "true")
     monkeypatch.setattr(bootstrap, "ensure_analytics_ready", lambda: None)

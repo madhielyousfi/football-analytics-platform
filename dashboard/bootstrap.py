@@ -3,6 +3,7 @@
 import logging
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -12,6 +13,27 @@ from dashboard.database import PROJECT_ROOT, database_path, ensure_analytics_rea
 
 LOGGER = logging.getLogger(__name__)
 _BOOTSTRAP_LOCK = Lock()
+
+
+def _safe_failure_reason(stage: str, detail: str) -> str:
+    """Extract an actionable category without exposing response bodies or secrets."""
+    if stage != "ingestion":
+        return "See the Streamlit Cloud logs for the dbt error."
+    http_error = re.search(r"API HTTP (\d{3}) for (/[^\s]+)", detail)
+    if http_error:
+        status, endpoint = http_error.groups()
+        if status in {"401", "403"}:
+            return f"Football API HTTP {status} at {endpoint}. Check the Cloud API token and its access."
+        if status == "429":
+            return "Football API rate limit reached (HTTP 429). Retry after the API limit resets."
+        if status in {"400", "404"}:
+            return f"Football API HTTP {status} at {endpoint}. Check competition and season settings."
+        return f"Football API returned HTTP {status} at {endpoint}."
+    if "API request failed for" in detail or "NameResolutionError" in detail:
+        return "Could not reach football-data.org from this instance."
+    if "Invalid JSON" in detail:
+        return "Football API returned invalid JSON."
+    return "See the Streamlit Cloud logs for the ingestion error."
 
 
 def auto_bootstrap_enabled() -> bool:
@@ -37,7 +59,8 @@ def _run_step(command: list[str], cwd: Path, env: dict[str, str], stage: str) ->
         if token:
             detail = detail.replace(token, "[REDACTED]")
         LOGGER.error("Cloud bootstrap %s failed: %s", stage, detail[-1000:])
-        raise RuntimeError(f"Automatic {stage} failed. Check the Streamlit Cloud logs.") from exc
+        reason = _safe_failure_reason(stage, detail)
+        raise RuntimeError(f"Automatic {stage} failed. {reason}") from exc
 
 
 def ensure_or_bootstrap() -> bool:
