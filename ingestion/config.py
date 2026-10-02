@@ -19,6 +19,10 @@ class Config:
     refresh_days_back: int = 3
     refresh_days_forward: int = 7
     full_refresh: bool = False
+    api_football_key: str = ""
+    api_football_base_url: str = "https://v3.football.api-sports.io"
+    api_football_daily_limit: int = 100
+    api_football_abort_at: int = 90
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -42,6 +46,10 @@ class Config:
             raise ValueError("FOOTBALL_FULL_REFRESH must be true or false")
         if timeout < 1 or retries < 0 or days_back < 0 or days_forward < 0:
             raise ValueError("Timeout must be positive; retries and refresh days must be nonnegative")
+        daily_limit = int(os.getenv("API_FOOTBALL_DAILY_LIMIT", "100"))
+        abort_at = int(os.getenv("API_FOOTBALL_ABORT_AT", "90"))
+        if daily_limit < 1 or not 0 < abort_at <= daily_limit:
+            raise ValueError("API_FOOTBALL_ABORT_AT must be within 1..API_FOOTBALL_DAILY_LIMIT")
         return cls(
             api_token=token,
             api_base_url=os.getenv("FOOTBALL_API_BASE_URL", "https://api.football-data.org/v4").rstrip("/"),
@@ -53,4 +61,9 @@ class Config:
             refresh_days_back=days_back,
             refresh_days_forward=days_forward,
             full_refresh=full_refresh_text in {"true", "1", "yes"},
+            api_football_key=os.getenv("API_FOOTBALL_KEY", "").strip(),
+            api_football_base_url=os.getenv(
+                "API_FOOTBALL_BASE_URL", "https://v3.football.api-sports.io").rstrip("/"),
+            api_football_daily_limit=daily_limit,
+            api_football_abort_at=abort_at,
         )

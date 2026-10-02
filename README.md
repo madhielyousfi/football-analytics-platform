@@ -72,6 +72,9 @@ Set `FOOTBALL_API_TOKEN` in `.env` using a football-data.org token. Set `FOOTBAL
 | `FOOTBALL_FULL_REFRESH` | `false` | Set to `true` for a full season reload. |
 | `FOOTBALL_API_TIMEOUT` | `30` | HTTP timeout in seconds. |
 | `FOOTBALL_API_MAX_RETRIES` | `3` | Retries for transient errors. |
+| `API_FOOTBALL_KEY` | Empty (disabled) | Free api-sports key for live scores, events, lineups, players, odds. |
+| `API_FOOTBALL_DAILY_LIMIT` | `100` | Free-plan daily request budget. |
+| `API_FOOTBALL_ABORT_AT` | `90` | Stop before hitting the budget; counted in `metadata.api_quota`. |
 
 ```bash
 python -m ingestion.run_ingestion
