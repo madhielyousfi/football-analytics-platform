@@ -9,11 +9,14 @@ import streamlit as st
 # for imports shared by this entry point and its pages.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from dashboard.components.cards import page_header
 from dashboard.database import ensure_analytics_ready, query_frame
-from dashboard.queries import competition_seasons
+from dashboard.queries import competition_seasons, pipeline_runs
+from dashboard.styles import inject_styles, relative_time
 
 
 st.set_page_config(page_title="Football Analytics", page_icon="⚽", layout="wide")
+inject_styles()
 
 try:
     ensure_analytics_ready()
@@ -21,10 +24,20 @@ except (FileNotFoundError, RuntimeError) as exc:
     st.error(str(exc))
     st.stop()
 
-st.sidebar.title("⚽ Football Analytics")
-if st.sidebar.button("Refresh data"):
-    query_frame.clear()
-    st.rerun()
+st.sidebar.markdown(
+    '<div class="fi-brand"><span class="fi-mark">⚽</span><div>'
+    '<strong>Football Intelligence</strong><small>Analytics platform</small></div></div>',
+    unsafe_allow_html=True,
+)
+
+page = st.navigation([
+    st.Page("pages/overview.py", title="Overview", icon="📊", default=True),
+    st.Page("pages/league.py", title="League", icon="🏆"),
+    st.Page("pages/teams.py", title="Teams", icon="👥"),
+    st.Page("pages/matches.py", title="Matches", icon="📅"),
+    st.Page("pages/head_to_head.py", title="Head-to-Head", icon="⚔️"),
+    st.Page("pages/pipeline.py", title="Pipeline", icon="🔄"),
+])
 
 available = competition_seasons()
 if available.empty:
@@ -33,6 +46,7 @@ if available.empty:
 
 competition_names = dict(zip(available["competition_id"], available["competition_name"]))
 competition_ids = sorted(competition_names, key=lambda key: competition_names[key])
+st.sidebar.markdown('<div class="fi-sidebar-label">Workspace filters</div>', unsafe_allow_html=True)
 competition_id = st.sidebar.selectbox(
     "Competition", competition_ids,
     format_func=lambda key: competition_names[key],
@@ -44,13 +58,17 @@ season_options = sorted(
 season = st.sidebar.selectbox("Season", season_options)
 st.session_state["competition_id"] = int(competition_id)
 st.session_state["season"] = int(season)
-st.sidebar.caption("Dashboard queries dbt marts. Refresh after a new dbt build.")
+st.session_state["competition_name"] = competition_names[competition_id]
 
-page = st.navigation([
-    st.Page("pages/overview.py", title="Overview", icon="📊", default=True),
-    st.Page("pages/teams.py", title="Teams", icon="👥"),
-    st.Page("pages/matches.py", title="Matches", icon="📅"),
-    st.Page("pages/league.py", title="League", icon="🏆"),
-    st.Page("pages/head_to_head.py", title="Head to Head", icon="⚔️"),
-])
+runs = pipeline_runs(1)
+latest_run = None if runs.empty else runs.iloc[0]
+st.session_state["latest_run"] = None if latest_run is None else latest_run.to_dict()
+st.sidebar.divider()
+if st.sidebar.button("↻ Refresh data", width="stretch"):
+    query_frame.clear()
+    st.rerun()
+refreshed = "Unavailable" if latest_run is None else relative_time(latest_run.get("completed_at"))
+st.sidebar.caption(f"Data refreshed {refreshed}")
+
+page_header(competition_names[competition_id], int(season), latest_run)
 page.run()

@@ -3,6 +3,7 @@
 from datetime import date
 
 import pandas as pd
+import duckdb
 
 from dashboard.database import query_frame
 
@@ -15,9 +16,10 @@ def competition_seasons() -> pd.DataFrame:
 
 
 def teams(competition_id: int, season: int) -> pd.DataFrame:
-    return query_frame("""SELECT team_id, team_name
-        FROM marts.mart_league_table
-        WHERE competition_id = ? AND season = ? ORDER BY team_name""",
+    return query_frame("""SELECT l.team_id, l.team_name, t.crest_url
+        FROM marts.mart_league_table AS l
+        LEFT JOIN marts.dim_team AS t ON l.team_id = t.team_id
+        WHERE l.competition_id = ? AND l.season = ? ORDER BY l.team_name""",
         (competition_id, season))
 
 
@@ -34,11 +36,46 @@ def overview(competition_id: int, season: int) -> pd.DataFrame:
 
 
 def league_table(competition_id: int, season: int) -> pd.DataFrame:
-    return query_frame("""SELECT position, team_id, team_name, played, wins, draws,
-        losses, goals_for, goals_against, goal_difference, points
-        FROM marts.mart_league_table
-        WHERE competition_id = ? AND season = ? ORDER BY position""",
+    return query_frame("""SELECT l.position, l.team_id, l.team_name, t.crest_url,
+        l.played, l.wins, l.draws, l.losses, l.goals_for,
+        l.goals_against, l.goal_difference, l.points
+        FROM marts.mart_league_table AS l
+        LEFT JOIN marts.dim_team AS t ON l.team_id = t.team_id
+        WHERE l.competition_id = ? AND l.season = ? ORDER BY l.position""",
         (competition_id, season))
+
+
+def all_team_form(competition_id: int, season: int) -> pd.DataFrame:
+    """Read recent team form already computed by dbt."""
+    return query_frame("""SELECT f.team_id, t.team_name, f.recent_form,
+        f.points_last_5, f.recent_matches
+        FROM marts.mart_team_form AS f
+        JOIN marts.dim_team AS t USING (team_id)
+        WHERE f.competition_id = ? AND f.season = ?
+        ORDER BY f.points_last_5 DESC, t.team_name""", (competition_id, season))
+
+
+def match_outcomes(competition_id: int, season: int) -> pd.DataFrame:
+    """Count completed match outcomes from dbt fact flags."""
+    return query_frame("""SELECT count(*) AS total_matches,
+        count(*) FILTER (WHERE is_home_win) AS home_wins,
+        count(*) FILTER (WHERE is_away_win) AS away_wins,
+        count(*) FILTER (WHERE is_draw) AS draws
+        FROM marts.fact_matches
+        WHERE competition_id = ? AND season = ? AND is_completed""",
+        (competition_id, season))
+
+
+def pipeline_runs(limit: int = 20) -> pd.DataFrame:
+    """Read operational metadata, tolerating older databases without the table."""
+    try:
+        return query_frame("""SELECT run_id, pipeline_name, started_at, completed_at,
+            status, rows_received, rows_inserted, rows_updated, error_message,
+            date_diff('second', started_at, completed_at) AS duration_seconds
+            FROM metadata.pipeline_runs
+            ORDER BY started_at DESC LIMIT ?""", (limit,))
+    except duckdb.CatalogException:
+        return pd.DataFrame()
 
 
 def team_performance(competition_id: int, season: int, team_id: int | None = None) -> pd.DataFrame:
@@ -63,7 +100,8 @@ def home_away(competition_id: int, season: int, team_id: int | None = None) -> p
 
 
 def goal_trends(competition_id: int, season: int) -> pd.DataFrame:
-    return query_frame("""SELECT match_date, matches_played, goals, home_goals, away_goals
+    return query_frame("""SELECT match_date, matches_played, goals, home_goals, away_goals,
+        round(goals::DOUBLE / nullif(matches_played, 0), 2) AS average_goals
         FROM marts.mart_goal_trends
         WHERE competition_id = ? AND season = ? ORDER BY match_date""",
         (competition_id, season))
@@ -93,7 +131,8 @@ def matches(competition_id: int, season: int, team_id: int | None,
             matchday: int | None, start_date: date, end_date: date,
             status: str | None) -> pd.DataFrame:
     return query_frame("""SELECT f.match_id, f.match_date, home.team_name AS home_team,
-        away.team_name AS away_team, f.home_goals, f.away_goals,
+        home.crest_url AS home_crest_url, away.team_name AS away_team,
+        away.crest_url AS away_crest_url, f.home_goals, f.away_goals,
         f.match_status, f.matchday
         FROM marts.fact_matches AS f
         JOIN marts.dim_team AS home ON f.home_team_id = home.team_id
@@ -109,8 +148,9 @@ def matches(competition_id: int, season: int, team_id: int | None,
 
 
 def league_comparison(competition_id: int, season: int) -> pd.DataFrame:
-    return query_frame("""SELECT l.position, l.team_name, l.points, l.goals_for,
-        l.goal_difference, p.win_percentage, h.home_wins, h.away_wins,
+    return query_frame("""SELECT l.position, l.team_id, l.team_name, l.points,
+        l.goals_for, l.goals_against, l.goal_difference,
+        p.win_percentage, h.home_wins, h.away_wins,
         h.home_win_rate, h.away_win_rate
         FROM marts.mart_league_table AS l
         LEFT JOIN marts.mart_team_performance AS p

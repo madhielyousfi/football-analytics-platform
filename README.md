@@ -39,7 +39,7 @@ Staging views rename fields, standardize strings, cast dates and IDs, and choose
 ```text
 ingestion/              API client, configuration, raw loaders, run orchestration
 football_dbt/           staging, intermediate, dimensions, facts, marts, dbt tests
-dashboard/              cached DuckDB queries and five Streamlit pages
+dashboard/              cached DuckDB queries, shared UI components, six pages
 scripts/                token-free CI database fixture
 tests/                  offline Python tests
 .github/workflows/       CI and scheduled pipeline
@@ -134,7 +134,7 @@ Run ingestion and `dbt build` first, then from the repository root:
 streamlit run dashboard/app.py
 ```
 
-The sidebar selects a competition and season. The five pages are **Overview** (KPIs, table, offense, defense, goal trends), **Teams** (results, form, home/away, goals and points progression), **Matches** (team, matchday, date and status filters), **League** (standings and comparison charts), and **Head to Head** (two-team metrics and recent meetings). The app opens DuckDB read-only and queries dbt marts using parameterized SQL. It caches query results for five minutes; use **Refresh data** in the sidebar after a new build. The dashboard needs no API token if the DuckDB file already contains built marts.
+The dark dashboard has six pages: **Overview** (KPIs, standings, goals trend, attack, form and pipeline summary), **League** (standings, rankings, attack versus defense, home and away performance), **Teams** (results, form, venue splits and progression), **Matches** (team, matchday, date and status filters), **Head-to-Head** (two-team metrics and recent meetings), and **Pipeline** (lineage and run metadata). The sidebar selects a competition and season. The app opens DuckDB read-only and queries dbt marts using parameterized SQL; the Pipeline page reads `metadata.pipeline_runs`. Query results are cached for five minutes; use **Refresh data** in the sidebar after a new build. The dashboard needs no API token if the DuckDB file already contains built marts.
 
 Screenshot placeholders and capture guidance are in [docs/screenshots](docs/screenshots/README.md). No unverified dashboard images are included.
 
