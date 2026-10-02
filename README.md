@@ -75,6 +75,9 @@ Set `FOOTBALL_API_TOKEN` in `.env` using a football-data.org token. Set `FOOTBAL
 | `API_FOOTBALL_KEY` | Empty (disabled) | Free api-sports key for live scores, events, lineups, players, odds. |
 | `API_FOOTBALL_DAILY_LIMIT` | `100` | Free-plan daily request budget. |
 | `API_FOOTBALL_ABORT_AT` | `90` | Stop before hitting the budget; counted in `metadata.api_quota`. |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Empty (push off) | Web Push keys (`python scripts/gen_vapid.py`); secret for poller + API. |
+| `VAPID_SUBJECT` | `mailto:…` | Contact shown to push services. |
+| `APP_BASE_URL` | `http://localhost:3000` | Public web URL embedded in goal-alert links. |
 
 ```bash
 python -m ingestion.run_ingestion

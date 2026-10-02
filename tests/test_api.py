@@ -14,6 +14,7 @@ EXPECTED = {
     "/api/fixture-players", "/api/fixture-odds",
     "/api/top-scorers", "/api/player-search", "/api/player-season",
     "/api/injuries",
+    "/api/push/vapid-key", "/api/push/subscribe", "/api/push/unsubscribe",
 }
 
 

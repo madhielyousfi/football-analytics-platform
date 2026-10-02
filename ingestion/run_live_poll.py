@@ -25,6 +25,11 @@ from ingestion.api_football_client import (
     check_daily_quota,
     record_call,
 )
+from api.push_store import (
+    detect_goal_changes,
+    score_snapshot,
+    send_goal_notifications,
+)
 from ingestion.config import Config
 from ingestion.database import (
     connect,
@@ -72,6 +77,7 @@ def poll(config: Config, league_id: int, max_live: int = 6,
             if not isinstance(items, list):
                 raise ValueError("Invalid fixtures list in API response")
             LOGGER.info("Today's fixtures: %s", len(items))
+            before = score_snapshot(connection, league_id)
             connection.execute("BEGIN TRANSACTION")
             transaction_open = True
             rows = fixture_rows(items, run_id)
@@ -122,6 +128,16 @@ def poll(config: Config, league_id: int, max_live: int = 6,
                 updated += changed
             connection.execute("COMMIT")
             transaction_open = False
+            fresh = [dict(zip(
+                ["fixture_id", "home_team_name", "away_team_name", "goals_home",
+                 "goals_away", "status_short", "elapsed"],
+                r)) for r in connection.execute(
+                """SELECT fixture_id, home_team_name, away_team_name,
+                   goals_home, goals_away, status_short, elapsed
+                   FROM raw_af.fixtures WHERE league_id = ?""", [league_id]).fetchall()]
+            sent = send_goal_notifications(connection, detect_goal_changes(before, fresh))
+            if sent:
+                LOGGER.info("Goal notifications sent: %s", sent)
             finish_run(connection, run_id, "SUCCESS", received, inserted, updated)
             LOGGER.info("Poll completed: run_id=%s", run_id)
         except Exception as exc:

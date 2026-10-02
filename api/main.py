@@ -17,6 +17,14 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+from api.push_store import (
+    all_subscriptions as _all_subs,
+    ensure_push_tables,
+    subscribe as _subscribe,
+    unsubscribe as _unsubscribe,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(PROJECT_ROOT / ".env")
@@ -273,6 +281,47 @@ def head_to_head_matches(competition_id: int, season: int, team_a_id: int, team_
 
 
 LIVE_STATUSES = ("1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE")
+
+
+class PushSubscription(BaseModel):
+    endpoint: str
+    p256dh: str
+    auth: str
+    label: str | None = None
+
+
+class PushEndpoint(BaseModel):
+    endpoint: str
+
+
+@app.get("/api/push/vapid-key")
+def vapid_key():
+    """Public VAPID key for browser subscription (503 when unconfigured)."""
+    key = os.getenv("VAPID_PUBLIC_KEY", "").strip()
+    if not key:
+        raise HTTPException(status_code=503, detail="Web Push not configured")
+    return {"publicKey": key}
+
+
+@app.post("/api/push/subscribe")
+def push_subscribe(sub: PushSubscription):
+    path = db_path()
+    if not path.is_file():
+        raise HTTPException(status_code=503, detail="Warehouse not initialized")
+    with closing(duckdb.connect(str(path))) as con:
+        ensure_push_tables(con)
+        _subscribe(con, sub.endpoint, sub.p256dh, sub.auth, sub.label)
+    return {"ok": True}
+
+
+@app.post("/api/push/unsubscribe")
+def push_unsubscribe(sub: PushEndpoint):
+    path = db_path()
+    if not path.is_file():
+        raise HTTPException(status_code=503, detail="Warehouse not initialized")
+    with closing(duckdb.connect(str(path))) as con:
+        removed = _unsubscribe(con, sub.endpoint)
+    return {"ok": True, "removed": removed}
 
 
 @app.get("/api/live")

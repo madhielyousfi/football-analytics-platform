@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { PageHeader, Empty, Crest, SkeletonGrid } from "@/components/ui";
+import { normTeam, useFavorites } from "@/components/favorites";
+import { PushButton } from "@/components/push-button";
 import type { LiveFixture } from "@/lib/types";
 
 const LIVE = new Set(["1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE"]);
@@ -53,6 +55,7 @@ function Row({ m }: { m: LiveFixture }) {
 
 export default function LivePage() {
   const [league, setLeague] = useState<string>("");
+  const { teams: favTeams, fixtures: favFixtures } = useFavorites();
   const feed = useQuery({
     queryKey: ["live"],
     queryFn: () => api<LiveFixture[]>("/api/live", { limit: 100 }),
@@ -72,6 +75,9 @@ export default function LivePage() {
   if (feed.isError) return <Empty msg="API unreachable. Run `make api` first." />;
 
   const rows = (feed.data ?? []).filter((m) => !league || m.league_id === Number(league));
+  const favNames = useMemo(() => new Set(favTeams.map((t) => normTeam(t.name))), [favTeams]);
+  const favIds = useMemo(() => new Set(favFixtures.map((f) => f.id)), [favFixtures]);
+  const mine = rows.filter((m) => favIds.has(m.fixture_id) || favNames.has(normTeam(m.home_team_name)) || favNames.has(normTeam(m.away_team_name)));
   const live = rows.filter(isLive);
   const upcoming = rows.filter((m) => !isLive(m) && !isFinished(m));
   const results = rows.filter(isFinished);
@@ -82,9 +88,12 @@ export default function LivePage() {
         eyebrow="Live"
         title="Live board"
         sub={live.length > 0 ? `${live.length} live now · auto-refresh every 60s` : "No matches live right now · refreshes automatically when play resumes"}
-        right={live.length > 0
-          ? <span className="badge border-red-500/30 bg-red-500/10 text-red-300"><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" /> LIVE</span>
-          : <span className="badge border-white/10 bg-white/5 text-muted">○ Idle</span>}
+        right={<span className="flex items-center gap-2">
+          <PushButton />
+          {live.length > 0
+            ? <span className="badge border-red-500/30 bg-red-500/10 text-red-300"><i className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" /> LIVE</span>
+            : <span className="badge border-white/10 bg-white/5 text-muted">○ Idle</span>}
+        </span>}
       />
       <div className="card mb-4 grid gap-3 sm:max-w-md">
         <div>
@@ -100,6 +109,12 @@ export default function LivePage() {
         <Empty msg="No fixtures in the live window. Run `make af-backfill` (needs API_FOOTBALL_KEY) to load today's games." />
       ) : (
         <>
+          {mine.length > 0 && (
+            <div className="card mb-4 !border-amber-400/20">
+              <div className="card-title">★ My games <span>{mine.length} followed</span></div>
+              <div className="!p-0">{mine.map((m) => <Row key={m.fixture_id} m={m} />)}</div>
+            </div>
+          )}
           {live.length > 0 && (
             <div className="card mb-4 !border-red-500/20">
               <div className="card-title">Live now <span>{live.length} in play</span></div>

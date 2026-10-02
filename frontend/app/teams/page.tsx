@@ -7,6 +7,7 @@ import { useSelection } from "@/components/selection";
 import { MobileFilters } from "@/components/sidebar";
 import { PageHeader, Empty, Crest, FormBadge, SkeletonGrid } from "@/components/ui";
 import { ProgressionChart } from "@/components/charts";
+import { Star, useFavorites } from "@/components/favorites";
 import type { TeamFormRow, TeamPerf, HomeAway, Progression } from "@/lib/types";
 
 export default function TeamsPage() {
@@ -15,6 +16,7 @@ export default function TeamsPage() {
   const enabled = !loading;
   const teamsQ = useQuery({ queryKey: ["form", competitionId, season], queryFn: () => api<TeamFormRow[]>("/api/all-team-form", params), enabled });
   const [teamId, setTeamId] = useState<number | null>(null);
+  const { toggleTeam, isTeam } = useFavorites();
   const activeId = useMemo(() => teamId ?? teamsQ.data?.[0]?.team_id ?? null, [teamId, teamsQ.data]);
 
   const perf = useQuery({ queryKey: ["perf", competitionId, season, activeId], queryFn: () => api<TeamPerf[]>(`/api/team-performance`, { ...params, team_id: activeId }), enabled: enabled && activeId !== null });
@@ -45,6 +47,10 @@ export default function TeamsPage() {
             <p className="text-xs text-muted">{fmt(active.points_last_5)} pts from last 5 · {active.recent_matches ?? 5} tracked</p>
           </div>
           <FormBadge form={active.recent_form} />
+          {activeId !== null && (
+            <Star on={isTeam(activeId)} label="Follow team"
+              onToggle={() => toggleTeam({ id: activeId, name: active.team_name })} />
+          )}
         </div>
       )}
 

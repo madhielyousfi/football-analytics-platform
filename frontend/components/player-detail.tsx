@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api, initials } from "@/lib/api";
 import { Empty } from "@/components/ui";
+import { Star, useFavorites } from "@/components/favorites";
 import type { PlayerEntry, PlayerSeason } from "@/lib/types";
 
 export function PlayerAvatar({ name, size = 46 }: { name: string; size?: number }) {
@@ -24,6 +25,7 @@ export function usePlayerSeason(playerId: number | null) {
 
 export function PlayerDetail({ playerId, link = false }: { playerId: number; link?: boolean }) {
   const q = usePlayerSeason(playerId);
+  const { togglePlayer, isPlayer } = useFavorites();
   if (q.isLoading) return <div className="card"><div className="skeleton h-48" /></div>;
   if (q.isError) return <Empty msg="API unreachable. Run `make api` first." />;
   const s = q.data?.summary;
@@ -46,6 +48,8 @@ export function PlayerDetail({ playerId, link = false }: { playerId: number; lin
           </h3>
           <p className="text-xs text-muted">{s.team_name}{s.position ? ` · ${s.position}` : ""}</p>
         </div>
+        <Star on={isPlayer(playerId)} label="Follow player"
+          onToggle={() => togglePlayer({ id: playerId, name: s.player_name ?? `#${playerId}` })} />
       </div>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
         {kpis.map(([label, value]) => (

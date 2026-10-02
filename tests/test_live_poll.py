@@ -85,3 +85,36 @@ def test_quota_abort_spends_nothing(tmp_path: Path) -> None:
     with pytest.raises(QuotaExceeded):
         poll(config, 39, max_live=100, client=client, today="2026-10-03")
     assert client.get_fixtures.call_count == 1  # aborted before any new call
+
+
+def test_goal_between_polls_sends_notification(tmp_path: Path,
+                                               monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+    import types
+    from unittest.mock import Mock
+
+    from api.push_store import subscribe
+
+    config = make_config(tmp_path)
+    one = dict(fixture(1, "1H"))
+    one["goals"] = {"home": 1, "away": 0}
+    two = dict(fixture(1, "1H"))
+    two["goals"] = {"home": 2, "away": 0}
+    client = make_client([one])
+    poll(config, 39, client=client, today="2026-10-03")
+
+    import duckdb
+    with duckdb.connect(str(config.duckdb_path)) as con:
+        subscribe(con, "https://push/a", "p", "a")
+
+    module = types.ModuleType("pywebpush")
+    module.WebPushException = type("Gone", (Exception,), {})  # type: ignore[attr-defined]
+    sender = Mock()
+    module.webpush = sender  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pywebpush", module)
+    monkeypatch.setenv("VAPID_PRIVATE_KEY", "test-key")
+
+    client.get_fixtures.return_value = {"errors": [], "response": [two]}
+    poll(config, 39, client=client, today="2026-10-03")
+    assert sender.call_count == 1
+    assert "Manchester City 2" in sender.call_args.args[1]

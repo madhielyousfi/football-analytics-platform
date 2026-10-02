@@ -54,6 +54,18 @@ Mobile gets inline filter selects + bottom tab bar; desktop keeps the sidebar.
   `frontend/out`. Pushes to `main` touching `frontend/`, the exporter, the demo
   DB, or the workflow redeploy automatically. Refresh the snapshot with
   `cp data/football.duckdb data/demo.duckdb` after a new ingestion + dbt build.
+  The static demo shows baked data only: live polling, push alerts and the
+  subscribe button degrade to informative empty/demo states.
+- **Favorites (no accounts):** followed teams/players/fixtures live in
+  `localStorage` (`components/favorites.tsx`); the ★ toggle appears on team,
+  player and fixture headers, and `/live` surfaces a "My games" section
+  (name-normalized across providers).
+- **Goal alerts (Web Push, needs API + poller):** `python scripts/gen_vapid.py`
+  creates `VAPID_*` keys; the browser subscribes via `public/sw.js` +
+  `POST /api/push/subscribe`; `run_live_poll` diffs scores per cycle and sends
+  goal notes (`APP_BASE_URL` links back to `/fixture/{id}`), pruning dead
+  endpoints. Requires `API_FOOTBALL_KEY` and VAPID secrets — unavailable on the
+  static demo by design.
 - Local static preview: `make web-static`, then serve `frontend/out`.
 - Full stack → Vercel (frontend, `NEXT_PUBLIC_API_URL`) + Render/Fly
   (`uvicorn api.main:app`, `CORS_ORIGINS` set to the Vercel URL).

@@ -2,3 +2,5 @@ fastapi>=0.110,<1
 uvicorn[standard]>=0.29,<1
 duckdb>=1.1,<2
 python-dotenv>=1,<2
+pywebpush>=2,<3
+ecdsa>=0.19,<1

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { PageHeader, Empty, Crest, SkeletonGrid } from "@/components/ui";
 import { FormationPitch, StatBars } from "@/components/fixture-tabs";
+import { Star, useFavorites } from "@/components/favorites";
 import type { FixtureDetail, InjuryRow, LineupRow, MatchEvent, OddRow, TeamStat } from "@/lib/types";
 
 function iconFor(e: MatchEvent): string {
@@ -25,6 +26,7 @@ function minute(e: MatchEvent): string {
 export default function FixtureClient({ id }: { id: string }) {
   const [tab, setTab] = useState<"timeline" | "lineups" | "stats" | "odds">("timeline");
   const [bookmaker, setBookmaker] = useState<string>("");
+  const { toggleFixture, isFixture } = useFavorites();
   const detail = useQuery({
     queryKey: ["fixture", id],
     queryFn: () => api<FixtureDetail>("/api/fixture-detail", { fixture_id: id }),
@@ -67,7 +69,9 @@ export default function FixtureClient({ id }: { id: string }) {
   return (
     <div>
       <PageHeader eyebrow={fx.league_name} title={`${fx.home_team_name} vs ${fx.away_team_name}`}
-        sub={`${fx.round ?? ""} · ${String(fx.fixture_date).slice(0, 10)}${fx.status_long ? ` · ${fx.status_long}` : ""}`} />
+        sub={`${fx.round ?? ""} · ${String(fx.fixture_date).slice(0, 10)}${fx.status_long ? ` · ${fx.status_long}` : ""}`}
+        right={<Star on={isFixture(fx.fixture_id)} label="Follow match"
+          onToggle={() => toggleFixture({ id: fx.fixture_id, label: `${fx.home_team_name} vs ${fx.away_team_name}` })} />} />
       <div className="card">
         <div className="flex items-center justify-between gap-4 py-2">
           <div className="flex flex-1 flex-col items-center gap-2 text-center">
