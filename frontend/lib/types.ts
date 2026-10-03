@@ -69,6 +69,13 @@ export type InjuryRow = {
   team_id?: number | null; team_name?: string | null;
   fixture_id?: number | null; fixture_date?: string | null;
 };
+export type TeamStrength = {
+  team_id: number; team_name?: string | null; played: number;
+  goals_for_per_game?: number | null; goals_against_per_game?: number | null;
+  attack_strength: number; defense_strength: number;
+  home_attack_strength?: number | null; home_defense_strength?: number | null;
+  away_attack_strength?: number | null; away_defense_strength?: number | null;
+};
 export type ScorerRow = {
   player_id: number; player_name?: string | null; team_name?: string | null;
   league_name?: string | null; appearances: number; goals: number; assists: number;

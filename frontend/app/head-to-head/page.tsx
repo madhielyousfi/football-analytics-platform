@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { predict, pct } from "@/lib/predict";
 import { useSelection } from "@/components/selection";
 import { MobileFilters } from "@/components/sidebar";
 import { PageHeader, Empty, Crest, SkeletonGrid } from "@/components/ui";
-import type { H2H, Match, TeamFormRow } from "@/lib/types";
+import type { H2H, Match, Overview, TeamFormRow, TeamStrength } from "@/lib/types";
 
 export default function H2HPage() {
   const { competitionId, season, loading } = useSelection();
@@ -22,6 +23,16 @@ export default function H2HPage() {
 
   const h2h = useQuery({ queryKey: ["h2h", competitionId, season, ta, tb], queryFn: () => api<H2H>("/api/head-to-head", { ...params, team_a_id: ta, team_b_id: tb }), enabled: ready });
   const games = useQuery({ queryKey: ["h2hm", competitionId, season, ta, tb], queryFn: () => api<Match[]>("/api/head-to-head-matches", { ...params, team_a_id: ta, team_b_id: tb }), enabled: ready });
+  const strengths = useQuery({
+    queryKey: ["strengths", competitionId, season],
+    queryFn: () => api<TeamStrength[]>("/api/team-strengths", params),
+    enabled,
+  });
+  const overview = useQuery({
+    queryKey: ["overview", competitionId, season],
+    queryFn: () => api<Overview>("/api/overview", params),
+    enabled,
+  });
 
   const nameA = teams.find((t) => t.team_id === ta)?.team_name ?? "Team A";
   const nameB = teams.find((t) => t.team_id === tb)?.team_name ?? "Team B";
@@ -32,6 +43,26 @@ export default function H2HPage() {
   if (teamsQ.isError) return <Empty msg="API unreachable. Run `make api` first." />;
 
   const d = h2h.data;
+  const strA = (strengths.data ?? []).find((s) => s.team_id === ta);
+  const strB = (strengths.data ?? []).find((s) => s.team_id === tb);
+  const pred = strA && strB && overview.data ? predict(
+    {
+      attack_strength: strA.attack_strength, defense_strength: strA.defense_strength,
+      home_attack_strength: strA.home_attack_strength ?? strA.attack_strength,
+      home_defense_strength: strA.home_defense_strength ?? strA.defense_strength,
+      away_attack_strength: strA.away_attack_strength ?? strA.attack_strength,
+      away_defense_strength: strA.away_defense_strength ?? strA.defense_strength,
+    },
+    {
+      attack_strength: strB.attack_strength, defense_strength: strB.defense_strength,
+      home_attack_strength: strB.home_attack_strength ?? strB.attack_strength,
+      home_defense_strength: strB.home_defense_strength ?? strB.defense_strength,
+      away_attack_strength: strB.away_attack_strength ?? strB.attack_strength,
+      away_defense_strength: strB.away_defense_strength ?? strB.defense_strength,
+    },
+    overview.data.average_home_goals ?? NaN,
+    overview.data.average_away_goals ?? NaN,
+  ) : null;
 
   return (
     <div>
@@ -73,6 +104,39 @@ export default function H2HPage() {
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+
+          <div className="card mt-4">
+            <div className="card-title">Model prediction <span>Poisson · if {nameA} hosted</span></div>
+            {!pred ? (
+              <p className="text-xs text-faint">Needs strengths for both teams (dbt mart_team_strengths) — rebuild marts after ingestion.</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[[`${nameA}`, pred.homeWin, "#22C55E"], ["Draw", pred.draw, "#F59E0B"], [`${nameB}`, pred.awayWin, "#06B6D4"]].map(([l, v, c]) => (
+                    <div key={l as string} className="rounded-xl border border-line bg-surface2 p-3">
+                      <p className="text-2xl font-extrabold" style={{ color: c as string }}>{pct(v as number)}</p>
+                      <p className="mt-1 max-w-full truncate text-[0.65rem] text-faint">{l as string}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted">
+                  <span>Expected goals <b className="text-white">{pred.lambdaHome} – {pred.lambdaAway}</b></span>
+                  <span>·</span>
+                  <span>Over 2.5 <b className="text-white">{pct(pred.over25)}</b></span>
+                  <span>·</span>
+                  <span>BTTS <b className="text-white">{pct(pred.btts)}</b></span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {pred.topScores.map((s) => (
+                    <span key={`${s.hg}-${s.ag}`} className="rounded-lg border border-line bg-surface2 px-2 py-1 text-xs font-bold text-white">
+                      {s.hg}–{s.ag} <span className="font-medium text-faint">{pct(s.p)}</span>
+                    </span>
+                  ))}
+                </div>
+                <p className="mt-3 text-[0.65rem] text-faint">Independent-Poisson baseline from season attack/defense strengths — no xG, no recency weighting, no rho correction.</p>
+              </>
             )}
           </div>
 

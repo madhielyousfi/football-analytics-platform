@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { PageHeader, Empty, Crest, SkeletonGrid } from "@/components/ui";
-import { FormationPitch, StatBars } from "@/components/fixture-tabs";
+import { FormationPitch, ScoreFlow, StatBars } from "@/components/fixture-tabs";
 import { Star, useFavorites } from "@/components/favorites";
 import type { FixtureDetail, InjuryRow, LineupRow, MatchEvent, OddRow, TeamStat } from "@/lib/types";
 
@@ -107,6 +107,7 @@ export default function FixtureClient({ id }: { id: string }) {
       {tab === "timeline" && (
       <div className="card">
         <div className="card-title">Timeline <span>{events.length} events</span></div>
+        <ScoreFlow events={events} homeId={fx.home_team_id} />
         {events.length === 0 ? (
           <p className="text-xs text-faint">No events recorded yet — they load with the events backfill after full time.</p>
         ) : (

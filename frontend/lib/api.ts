@@ -82,6 +82,12 @@ async function apiStatic<T>(path: string, params: Record<string, string | number
       if (params["team_id"] != null) rows = rows.filter((r) => r.team_id === Number(params["team_id"]));
       return rows as T;
     }
+    case "/api/team-strengths": {
+      let rows = await getJson<any[]>("strengths.json").catch(() => []);
+      rows = rows.filter((r) => r.competition_id === Number(params["competition_id"]) && r.season === Number(params["season"]));
+      if (params["team_id"] != null) rows = rows.filter((r) => r.team_id === Number(params["team_id"]));
+      return rows as T;
+    }
     case "/api/top-scorers": {
       let rows = await getJson<any[]>("af-top-scorers.json").catch(() => []);
       const lid = num(params["league_id"]);

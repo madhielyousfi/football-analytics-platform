@@ -66,6 +66,10 @@ Mobile gets inline filter selects + bottom tab bar; desktop keeps the sidebar.
   goal notes (`APP_BASE_URL` links back to `/fixture/{id}`), pruning dead
   endpoints. Requires `API_FOOTBALL_KEY` and VAPID secrets — unavailable on the
   static demo by design.
+- **Predictions (transparent baseline):** `mart_team_strengths` (dbt) feeds a
+  client-side independent-Poisson engine (`lib/predict.ts`): 1X2, expected
+  goals, over 2.5, BTTS and top scorelines on the head-to-head page. Season
+  averages only — labeled as such, no xG or rho correction.
 - Local static preview: `make web-static`, then serve `frontend/out`.
 - Full stack → Vercel (frontend, `NEXT_PUBLIC_API_URL`) + Render/Fly
   (`uvicorn api.main:app`, `CORS_ORIGINS` set to the Vercel URL).

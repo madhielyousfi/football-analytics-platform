@@ -11,6 +11,20 @@ models:
       - name: season
         data_tests: [not_null]
 
+  - name: mart_team_strengths
+    description: One row per team, competition and season with Poisson-style attack/defense strengths (team rate divided by league average; attack >1 scores freely, defense <1 is solid), plus home/away splits. Powers match predictions.
+    columns:
+      - name: team_id
+        data_tests: [not_null]
+      - name: competition_id
+        data_tests: [not_null]
+      - name: season
+        data_tests: [not_null]
+      - name: attack_strength
+        data_tests: [not_null]
+      - name: defense_strength
+        data_tests: [not_null]
+
   - name: mart_league_table
     description: One row per participant and season. Simplified order is points, goal difference, goals for, name and ID; competition-specific tie-breakers are not applied.
     columns:

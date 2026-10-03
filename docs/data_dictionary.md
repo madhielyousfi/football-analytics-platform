@@ -35,6 +35,7 @@ Win = 3 points, draw = 1, loss = 0. A scheduled or timed fixture contributes no 
 | `mart_goal_analysis` | Competition × season | Completed-match goal averages, over/under 2.5 counts and highest scoring match. |
 | `mart_goal_trends` | UTC match date × competition × season | Daily completed-match goal totals. |
 | `mart_team_progression` | Team × completed match | Cumulative points and goals in match time order. |
+| `mart_team_strengths` | Team × competition × season | Attack/defense strengths (team per-game rate ÷ league average; attack >1 scores freely, defense <1 is solid) with home/away splits. Season averages only — no xG or recency weighting. |
 | `mart_head_to_head` | Unordered pair × competition × season | The lower team ID is Team A. The five latest scorelines use that perspective. |
 
 `mart_league_table` is an analytical approximation. Competition-specific tie-breakers, point deductions and official rulings are not applied. `stg_standings` contains the API's official table for comparison; it is not substituted for the calculated mart.

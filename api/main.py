@@ -532,6 +532,23 @@ def injuries(fixture_id: Optional[int] = None, league_id: Optional[int] = None,
         return JSONResponse(content=[])
 
 
+@app.get("/api/team-strengths")
+def team_strengths(competition_id: int, season: int, team_id: Optional[int] = None):
+    """Poisson-style attack/defense strengths from mart_team_strengths."""
+    try:
+        return fetch(
+            """SELECT team_id, team_name, played, goals_for_per_game,
+               goals_against_per_game, attack_strength, defense_strength,
+               home_attack_strength, home_defense_strength,
+               away_attack_strength, away_defense_strength
+               FROM marts.mart_team_strengths
+               WHERE competition_id = ? AND season = ?
+                 AND (? IS NULL OR team_id = ?)""",
+            [competition_id, season, team_id, team_id])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
 @app.get("/api/fixture-resolve")
 def fixture_resolve(fd_match_id: int):
     """Map a football-data.org match id to its API-Football fixture (or null)."""

@@ -1,6 +1,50 @@
 "use client";
 
-import type { LineupRow, TeamStat } from "@/lib/types";
+import type { LineupRow, MatchEvent, TeamStat } from "@/lib/types";
+
+export function ScoreFlow({ events, homeId }: { events: MatchEvent[]; homeId: number }) {
+  const goals = events.filter((e) => (e.event_type ?? "").toLowerCase().includes("goal"));
+  if (goals.length === 0) return null;
+  let diff = 0;
+  const pts: [number, number][] = [[0, 0]];
+  const marks: { min: number; diff: number; home: boolean }[] = [];
+  goals.forEach((g) => {
+    const own = (g.detail ?? "").toLowerCase().includes("own");
+    const isHome = (g.team_id ?? -1) === homeId;
+    const homeScores = own ? !isHome : isHome;
+    diff += homeScores ? 1 : -1;
+    const min = Math.min(g.elapsed ?? 0, 95);
+    pts.push([min, diff]);
+    marks.push({ min, diff, home: homeScores });
+  });
+  pts.push([95, diff]);
+  const X = (m: number) => 4 + (m / 95) * 92;
+  const Y = (d: number) => 20 - Math.max(-3, Math.min(3, d)) * 5;
+  // Step rendering: horizontal then vertical segments.
+  let stepped = `M ${X(pts[0][0]).toFixed(1)} ${Y(pts[0][1]).toFixed(1)}`;
+  for (let i = 1; i < pts.length; i++) {
+    stepped += ` H ${X(pts[i][0]).toFixed(1)} V ${Y(pts[i][1]).toFixed(1)}`;
+  }
+  return (
+    <div className="mb-4">
+      <p className="mb-2 text-xs font-bold uppercase tracking-wider text-faint">
+        Score flow <span className="font-medium normal-case">home − away goal difference</span>
+      </p>
+      <svg viewBox="0 0 100 40" className="h-28 w-full rounded-xl border border-line bg-surface2" preserveAspectRatio="none">
+        <line x1="4" y1="20" x2="96" y2="20" stroke="rgba(255,255,255,.15)" strokeWidth="0.5" />
+        {[15, 30, 45, 60, 75, 90].map((m) => (
+          <g key={m}>
+            <line x1={X(m)} y1="36" x2={X(m)} y2="38" stroke="rgba(255,255,255,.25)" strokeWidth="0.5" />
+          </g>
+        ))}
+        <path d={stepped} fill="none" stroke="#22C55E" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+        {marks.map((k, i) => (
+          <circle key={i} cx={X(k.min)} cy={Y(k.diff)} r="2.2" fill={k.home ? "#22C55E" : "#06B6D4"} stroke="#070B12" strokeWidth="0.6" />
+        ))}
+      </svg>
+    </div>
+  );
+}
 
 function parseGrid(grid?: string | null): [number, number] | null {
   if (!grid) return null;

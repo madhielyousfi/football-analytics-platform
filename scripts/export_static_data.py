@@ -166,6 +166,23 @@ def main() -> None:
         except duckdb.CatalogException:
             write(out / "af-injuries.json", [])
         try:
+            write(out / "strengths.json", fetch(
+                con,
+                """SELECT competition_id, season, team_id, team_name, played,
+                   goals_for_per_game, goals_against_per_game,
+                   attack_strength, defense_strength,
+                   home_attack_strength, home_defense_strength,
+                   away_attack_strength, away_defense_strength
+                   FROM marts.mart_team_strengths"""))
+            write(out / "goal-averages.json", fetch(
+                con,
+                """SELECT competition_id, season, average_home_goals,
+                   average_away_goals, average_goals_per_match
+                   FROM marts.mart_goal_analysis"""))
+        except duckdb.CatalogException:
+            write(out / "strengths.json", [])
+            write(out / "goal-averages.json", [])
+        try:
             write(out / "af-top-scorers.json", fetch(
                 con,
                 """SELECT p.player_id, max(p.player_name) AS player_name,

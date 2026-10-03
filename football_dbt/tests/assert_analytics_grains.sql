@@ -24,6 +24,12 @@ with all_grains as (
 
     union all
 
+    select 'team_strengths', competition_id, season, cast(team_id as varchar), count(*)
+    from {{ ref('mart_team_strengths') }}
+    group by competition_id, season, team_id
+
+    union all
+
     select 'goal_analysis', competition_id, season, 'competition', count(*)
     from {{ ref('mart_goal_analysis') }}
     group by competition_id, season

@@ -125,6 +125,7 @@ Unfinished fixtures remain in `fact_matches`, but points, total goals, winner, a
 | `mart_head_to_head` | Unordered team pair × competition × season | Wins, draws, goals and up to five recent scorelines. |
 | `mart_goal_trends` | Played date × competition × season | Daily goals for the overview chart. |
 | `mart_team_progression` | Completed match × team | Cumulative points and goals for team charts and recent matches. |
+| `mart_team_strengths` | Team × competition × season | Poisson-style attack/defense strengths (team rate ÷ league average) with home/away splits; powers match predictions. |
 
 `mart_league_table` sorts by points, goal difference and goals for, then team name and ID for a stable order. It is a **simplified analytical table**: competition-specific head-to-head, disciplinary, or other tie-break rules are not applied. `mart_team_form.recent_form` is newest first and `form_score = points_last_5 / 15`, so teams with fewer than five games cannot yet reach the same maximum. `mart_head_to_head` always treats the lower team ID as Team A; recent scorelines are from that team's perspective. Team-level goal totals are in `mart_team_performance`.
 
