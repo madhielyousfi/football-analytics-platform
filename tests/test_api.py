@@ -16,6 +16,7 @@ EXPECTED = {
     "/api/injuries",
     "/api/push/vapid-key", "/api/push/subscribe", "/api/push/unsubscribe",
     "/api/team-strengths",
+    "/api/tournament-groups", "/api/knockout",
 }
 
 

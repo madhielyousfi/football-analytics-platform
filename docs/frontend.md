@@ -42,6 +42,10 @@ Or manually: `.venv/bin/python -m uvicorn api.main:app --port 8000` and
 | `/matches` | `pages/matches.py` | matches, match-filter-options, all-team-form |
 | `/head-to-head` | `pages/head_to_head.py` | head-to-head, head-to-head-matches |
 | `/pipeline` | `pages/pipeline.py` | pipeline-runs |
+| `/live` | — (new) | live fixtures with auto-refresh + My Games |
+| `/fixture/[id]` | — (new) | fixture detail, timeline, lineups, stats, odds |
+| `/players`, `/players/[id]` | — (new) | search, scorers, season cards, comparison |
+| `/tournaments` | — (new) | cup groups + knockout bracket |
 
 Selection state (competition/season) is shared via React context +
 `localStorage` (`components/selection.tsx`), replacing Streamlit session state.

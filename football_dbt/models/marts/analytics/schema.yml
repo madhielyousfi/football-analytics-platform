@@ -84,3 +84,27 @@ models:
         data_tests: [not_null]
       - name: team_id
         data_tests: [not_null]
+
+  - name: mart_tournament_groups
+    description: One row per team per group for cup tournaments (source rows carry a group name; empty for leagues).
+    columns:
+      - name: competition_id
+        data_tests: [not_null]
+      - name: season
+        data_tests: [not_null]
+      - name: group_name
+        data_tests: [not_null]
+      - name: team_id
+        data_tests: [not_null]
+
+  - name: mart_knockout
+    description: One knockout-bracket fixture per row (any non-group stage), ordered by round_order.
+    columns:
+      - name: match_id
+        data_tests: [not_null]
+      - name: competition_id
+        data_tests: [not_null]
+      - name: season
+        data_tests: [not_null]
+      - name: stage
+        data_tests: [not_null]

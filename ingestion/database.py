@@ -20,6 +20,25 @@ def connect(path: Path) -> Iterator[duckdb.DuckDBPyConnection]:
         connection.close()
 
 
+def ensure_raw_matches_group(connection: duckdb.DuckDBPyConnection) -> int:
+    """Add raw.matches.group_name to pre-existing databases; returns rows backfilled."""
+    exists = connection.execute(
+        """SELECT count(*) FROM information_schema.columns
+           WHERE table_schema = 'raw' AND table_name = 'matches'
+           AND column_name = 'group_name'""").fetchone()[0]
+    if not exists:
+        connection.execute("ALTER TABLE raw.matches ADD COLUMN group_name VARCHAR")
+    pending = connection.execute(
+        """SELECT count(*) FROM raw.matches
+           WHERE group_name IS NULL AND _payload IS NOT NULL
+           AND json_extract_string(_payload, '$.group') IS NOT NULL""").fetchone()[0]
+    connection.execute(
+        """UPDATE raw.matches
+           SET group_name = json_extract_string(_payload, '$.group')
+           WHERE group_name IS NULL AND _payload IS NOT NULL""")
+    return int(pending)
+
+
 def create_tables(connection: duckdb.DuckDBPyConnection) -> None:
     """Initialize raw and metadata objects without clearing prior data."""
     connection.execute("CREATE SCHEMA IF NOT EXISTS raw")
@@ -49,7 +68,7 @@ def create_tables(connection: duckdb.DuckDBPyConnection) -> None:
         match_id INTEGER PRIMARY KEY, competition_id INTEGER,
         competition_name VARCHAR, season_id INTEGER,
         season_start_date DATE, season_end_date DATE, utc_date TIMESTAMPTZ,
-        status VARCHAR, matchday INTEGER, stage VARCHAR,
+        status VARCHAR, matchday INTEGER, stage VARCHAR, group_name VARCHAR,
         home_team_id INTEGER, home_team_name VARCHAR,
         away_team_id INTEGER, away_team_name VARCHAR,
         home_score INTEGER, away_score INTEGER, winner VARCHAR,
@@ -57,6 +76,7 @@ def create_tables(connection: duckdb.DuckDBPyConnection) -> None:
         _payload JSON, _ingested_at TIMESTAMPTZ, _batch_id VARCHAR,
         _source VARCHAR, _api_endpoint VARCHAR
     )""")
+    ensure_raw_matches_group(connection)
     connection.execute("""CREATE TABLE IF NOT EXISTS raw.standings (
         standing_key VARCHAR PRIMARY KEY, competition_id INTEGER,
         season_id INTEGER, team_id INTEGER, team_name VARCHAR,

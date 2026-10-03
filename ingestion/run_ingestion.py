@@ -60,10 +60,13 @@ def ingest(config: Config, client: FootballDataClient | None = None,
                 matches_response = client.get_matches(config.competition, config.season)
             matches = matches_response.get("matches", [])
             if selected.get("type") in {"CUP", "PLAYOFFS"}:
-                LOGGER.info("Standings are unavailable for %s competitions", selected.get("type"))
-                standings_response = {"competition": selected, "standings": []}
-            else:
+                LOGGER.info("Attempting standings for %s competition (may be empty)",
+                            selected.get("type"))
+            try:
                 standings_response = client.get_standings(config.competition, config.season)
+            except Exception as exc:
+                LOGGER.warning("Standings unavailable, continuing without them: %s", exc)
+                standings_response = {"competition": selected, "standings": []}
             standings = standing_rows(standings_response, run_id,
                                       config.competition, config.season)
             for label, items in (("competitions", competitions), ("teams", teams),

@@ -88,6 +88,10 @@ async function apiStatic<T>(path: string, params: Record<string, string | number
       if (params["team_id"] != null) rows = rows.filter((r) => r.team_id === Number(params["team_id"]));
       return rows as T;
     }
+    case "/api/tournament-groups":
+      return getJson<T>(`${cs}/tournament-groups.json`);
+    case "/api/knockout":
+      return getJson<T>(`${cs}/knockout.json`);
     case "/api/top-scorers": {
       let rows = await getJson<any[]>("af-top-scorers.json").catch(() => []);
       const lid = num(params["league_id"]);

@@ -30,6 +30,19 @@ with all_grains as (
 
     union all
 
+    select 'tournament_groups', competition_id, season,
+           cast(group_name as varchar) || ':' || cast(team_id as varchar), count(*)
+    from {{ ref('mart_tournament_groups') }}
+    group by competition_id, season, group_name, team_id
+
+    union all
+
+    select 'knockout', competition_id, season, cast(match_id as varchar), count(*)
+    from {{ ref('mart_knockout') }}
+    group by competition_id, season, match_id
+
+    union all
+
     select 'goal_analysis', competition_id, season, 'competition', count(*)
     from {{ ref('mart_goal_analysis') }}
     group by competition_id, season

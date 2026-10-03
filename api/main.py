@@ -87,7 +87,8 @@ def health():
 @app.get("/api/competitions")
 def competitions():
     rows = fetch(
-        """SELECT DISTINCT f.competition_id, c.competition_name, c.competition_code, f.season
+        """SELECT DISTINCT f.competition_id, c.competition_name, c.competition_code,
+           c.competition_type, f.season
            FROM marts.fact_matches f JOIN marts.dim_competition c USING (competition_id)
            ORDER BY c.competition_name, f.season DESC"""
     )
@@ -95,7 +96,8 @@ def competitions():
     for r in rows:
         cid = r["competition_id"]
         grouped.setdefault(cid, {"competition_id": cid, "competition_name": r["competition_name"],
-                                 "competition_code": r.get("competition_code"), "seasons": []})
+                                 "competition_code": r.get("competition_code"),
+                                 "competition_type": r.get("competition_type"), "seasons": []})
         grouped[cid]["seasons"].append(r["season"])
     return list(grouped.values())
 
@@ -545,6 +547,39 @@ def team_strengths(competition_id: int, season: int, team_id: Optional[int] = No
                WHERE competition_id = ? AND season = ?
                  AND (? IS NULL OR team_id = ?)""",
             [competition_id, season, team_id, team_id])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
+@app.get("/api/tournament-groups")
+def tournament_groups(competition_id: int, season: int):
+    """Group-stage tables for a cup tournament (empty for leagues)."""
+    try:
+        return fetch(
+            """SELECT group_name, position, team_id, team_name, played,
+               goals_for, goals_against, goal_difference, points
+               FROM marts.mart_tournament_groups
+               WHERE competition_id = ? AND season = ?
+               ORDER BY group_name, position""",
+            [competition_id, season])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
+@app.get("/api/knockout")
+def knockout(competition_id: int, season: int):
+    """Knockout-bracket fixtures ordered by round then date."""
+    try:
+        return fetch(
+            """SELECT match_id, stage, round_order, match_date, match_datetime,
+               match_status, is_completed,
+               home_team_id, home_team_name, home_crest_url,
+               away_team_id, away_team_name, away_crest_url,
+               home_goals, away_goals
+               FROM marts.mart_knockout
+               WHERE competition_id = ? AND season = ?
+               ORDER BY round_order, match_datetime, match_id""",
+            [competition_id, season])
     except HTTPException:
         return JSONResponse(content=[])
 

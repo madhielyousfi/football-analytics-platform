@@ -49,7 +49,8 @@ def main() -> None:
     with closing(duckdb.connect(str(args.db), read_only=True)) as con:
         comps = fetch(
             con,
-            """SELECT DISTINCT f.competition_id, c.competition_name, c.competition_code, f.season
+            """SELECT DISTINCT f.competition_id, c.competition_name, c.competition_code,
+               c.competition_type, f.season
                FROM marts.fact_matches f JOIN marts.dim_competition c USING (competition_id)
                ORDER BY c.competition_name, f.season DESC""",
         )
@@ -57,7 +58,8 @@ def main() -> None:
         for r in comps:
             cid = r["competition_id"]
             grouped.setdefault(cid, {"competition_id": cid, "competition_name": r["competition_name"],
-                                     "competition_code": r.get("competition_code"), "seasons": []})
+                                     "competition_code": r.get("competition_code"),
+                                     "competition_type": r.get("competition_type"), "seasons": []})
             grouped[cid]["seasons"].append(r["season"])
         write(out / "competitions.json", list(grouped.values()))
 
@@ -248,6 +250,29 @@ def main() -> None:
                    FROM marts.mart_league_table l LEFT JOIN marts.dim_team t ON l.team_id=t.team_id
                    WHERE l.competition_id=? AND l.season=? ORDER BY l.position""", p)
             write(cs / "league-table.json", league)
+
+            try:
+                groups = fetch(
+                    con,
+                    """SELECT group_name, position, team_id, team_name, played,
+                       goals_for, goals_against, goal_difference, points
+                       FROM marts.mart_tournament_groups
+                       WHERE competition_id = ? AND season = ?
+                       ORDER BY group_name, position""", p)
+                bracket = fetch(
+                    con,
+                    """SELECT match_id, stage, round_order, match_date, match_datetime,
+                       match_status, is_completed,
+                       home_team_id, home_team_name, home_crest_url,
+                       away_team_id, away_team_name, away_crest_url,
+                       home_goals, away_goals
+                       FROM marts.mart_knockout
+                       WHERE competition_id = ? AND season = ?
+                       ORDER BY round_order, match_datetime, match_id""", p)
+            except duckdb.CatalogException:
+                groups, bracket = [], []
+            write(cs / "tournament-groups.json", groups)
+            write(cs / "knockout.json", bracket)
 
             write(cs / "league-comparison.json", fetch(
                 con,

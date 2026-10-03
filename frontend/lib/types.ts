@@ -2,6 +2,7 @@ export type Competition = {
   competition_id: number;
   competition_name: string;
   competition_code?: string;
+  competition_type?: string;
   seasons: number[];
 };
 
@@ -75,6 +76,19 @@ export type TeamStrength = {
   attack_strength: number; defense_strength: number;
   home_attack_strength?: number | null; home_defense_strength?: number | null;
   away_attack_strength?: number | null; away_defense_strength?: number | null;
+};
+export type GroupRow = {
+  group_name: string; position: number; team_id: number; team_name: string;
+  played: number; goals_for: number; goals_against: number;
+  goal_difference: number; points: number;
+};
+export type KnockoutMatch = {
+  match_id: number; stage: string; round_order: number;
+  match_date?: string | null; match_datetime?: string | null;
+  match_status?: string | null; is_completed?: boolean | null;
+  home_team_id: number; home_team_name?: string | null; home_crest_url?: string | null;
+  away_team_id: number; away_team_name?: string | null; away_crest_url?: string | null;
+  home_goals?: number | null; away_goals?: number | null;
 };
 export type ScorerRow = {
   player_id: number; player_name?: string | null; team_name?: string | null;

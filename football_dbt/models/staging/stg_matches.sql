@@ -22,6 +22,7 @@ select
     nullif(upper(trim(status)), '') as match_status,
     cast(matchday as integer) as matchday,
     nullif(upper(trim(stage)), '') as stage,
+    nullif(upper(trim(group_name)), '') as group_name,
     cast(home_team_id as integer) as home_team_id,
     nullif(trim(home_team_name), '') as home_team_name,
     cast(away_team_id as integer) as away_team_id,
