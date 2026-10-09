@@ -95,10 +95,10 @@ export default function FixtureClient({ id }: { id: string }) {
         </div>
       </div>
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {(["timeline", "lineups", "stats", "odds"] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`rounded-xl px-4 py-2 text-xs font-bold capitalize transition ${tab === t ? "bg-pitch/15 text-green-300 border border-pitch/30" : "bg-surface2 text-muted border border-line hover:text-white"}`}>
+            className={`shrink-0 rounded-xl px-4 py-2.5 text-xs font-bold capitalize transition ${tab === t ? "bg-pitch/15 text-green-300 border border-pitch/30" : "bg-surface2 text-muted border border-line hover:text-white"}`}>
             {t}
           </button>
         ))}

@@ -120,6 +120,7 @@ export default function TournamentsPage() {
             {groupNames.map((g) => (
               <div key={g} className="card">
                 <div className="card-title">{prettyGroup(g)} <span>top 2 advance</span></div>
+                <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-sm">
                   <tbody>
                     {(groups.data ?? []).filter((r) => r.group_name === g).map((r) => (
@@ -138,6 +139,7 @@ export default function TournamentsPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             ))}
           </div>

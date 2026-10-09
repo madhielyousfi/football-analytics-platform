@@ -134,10 +134,10 @@ export function StatBars({ stats, homeId }: { stats: TeamStat[]; homeId: number 
         const hpct = total > 0 && hn !== null ? (hn / total) * 100 : 50;
         return (
           <div key={t}>
-            <div className="mb-1 flex items-center justify-between text-xs">
-              <b className="text-white">{hv ?? "–"}</b>
-              <span className="text-faint">{t}</span>
-              <b className="text-white">{av ?? "–"}</b>
+            <div className="mb-1 flex items-center justify-between gap-1 text-xs">
+              <b className="shrink-0 text-white">{hv ?? "–"}</b>
+              <span className="min-w-0 flex-1 truncate px-1 text-center text-faint">{t}</span>
+              <b className="shrink-0 text-white">{av ?? "–"}</b>
             </div>
             <div className="flex h-1.5 gap-0.5 overflow-hidden rounded-full">
               <span className="rounded-l-full bg-pitch" style={{ width: `${hpct}%` }} />

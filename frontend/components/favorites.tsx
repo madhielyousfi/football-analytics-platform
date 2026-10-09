@@ -84,7 +84,7 @@ export function normTeam(name: string): string {
 export function Star({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
   return (
     <button onClick={onToggle} title={label} aria-label={label} aria-pressed={on}
-      className={`grid h-8 w-8 place-items-center rounded-xl border text-base transition ${on ? "border-amber-400/40 bg-amber-400/10" : "border-line bg-surface2 hover:border-white/20"}`}>
+      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border text-lg transition ${on ? "border-amber-400/40 bg-amber-400/10" : "border-line bg-surface2 hover:border-white/20"}`}>
       <span className={on ? "text-amber-300" : "text-faint"}>★</span>
     </button>
   );

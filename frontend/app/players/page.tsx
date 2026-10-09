@@ -77,12 +77,14 @@ export default function PlayersPage() {
           seasonA.data?.summary && seasonB.data?.summary ? (
             <div>
               <div className="mb-3 flex items-center justify-between gap-2">
-                <span className="flex items-center gap-2 text-sm font-bold text-white">
-                  <PlayerAvatar name={seasonA.data.summary.player_name ?? "?"} size={26} />{seasonA.data.summary.player_name}
+                <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold text-white">
+                  <span className="shrink-0"><PlayerAvatar name={seasonA.data.summary.player_name ?? "?"} size={26} /></span>
+                  <span className="min-w-0 truncate">{seasonA.data.summary.player_name}</span>
                 </span>
-                <span className="text-xs font-bold text-faint">VS</span>
-                <span className="flex items-center gap-2 text-sm font-bold text-white">
-                  {seasonB.data.summary.player_name}<PlayerAvatar name={seasonB.data.summary.player_name ?? "?"} size={26} />
+                <span className="shrink-0 text-xs font-bold text-faint">VS</span>
+                <span className="flex min-w-0 flex-1 items-center justify-end gap-2 text-sm font-bold text-white">
+                  <span className="min-w-0 truncate">{seasonB.data.summary.player_name}</span>
+                  <span className="shrink-0"><PlayerAvatar name={seasonB.data.summary.player_name ?? "?"} size={26} /></span>
                 </span>
               </div>
               <CompareBars a={seasonA.data.summary} b={seasonB.data.summary} />

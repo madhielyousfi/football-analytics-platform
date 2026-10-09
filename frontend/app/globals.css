@@ -6,17 +6,22 @@
 
 :root { color-scheme: dark; }
 
-html, body { background: #070B12; color: #F8FAFC; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+html, body {
+  background: #070B12; color: #F8FAFC;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
+}
 
 @layer components {
   .card { @apply rounded-2xl border border-line bg-surface shadow-card p-4 sm:p-5; }
   .card-title { @apply flex items-center justify-between gap-2 text-[0.95rem] font-bold text-white mb-3; }
   .card-sub { @apply text-xs font-medium text-faint; }
   .eyebrow { @apply text-pitch text-[0.7rem] font-bold uppercase tracking-[0.17em] mb-2; }
-  .h-display { @apply font-extrabold tracking-tight text-white leading-tight text-[clamp(1.7rem,3vw,2.5rem)]; }
+  .h-display { @apply font-extrabold tracking-tight text-white leading-tight text-[clamp(1.6rem,3vw,2.5rem)]; }
   .subtle { @apply text-sm text-muted mt-2; }
-  .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.68rem] font-bold border; }
-  .input { @apply w-full rounded-xl border border-line bg-surface2 px-3 py-2.5 text-sm text-white outline-none focus:border-pitch/60; }
+  .badge { @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[0.68rem] font-bold border; }
+  .input { @apply w-full min-h-[44px] rounded-xl border border-line bg-surface2 px-3 py-2.5 text-base text-white outline-none focus:border-pitch/60 sm:text-sm; }
   .table-head { @apply text-right text-faint text-[0.66rem] uppercase tracking-wider font-bold px-2 py-2 border-b border-line whitespace-nowrap; }
   .table-cell { @apply text-right text-slate-200 px-2 py-2.5 border-b border-white/5 text-[0.78rem] whitespace-nowrap; }
   .skeleton { @apply animate-pulse rounded-xl bg-white/5; }
