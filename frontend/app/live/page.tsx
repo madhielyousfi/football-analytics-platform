@@ -122,7 +122,7 @@ export default function LivePage() {
       <p className="mb-4 text-xs text-faint">Live board follows the current window (recent + upcoming). Browse full seasons in Matches, League or Tournaments via the sidebar filters.</p>
 
       {rows.length === 0 ? (
-        <Empty msg="No fixtures in the live window. Run `make af-backfill` (needs API_FOOTBALL_KEY) to load today's games." />
+        <Empty msg="No fixtures in the warehouse yet. Run `make af-backfill` to load games (needs API_FOOTBALL_KEY)." />
       ) : (
         <>
           {mine.length > 0 && (

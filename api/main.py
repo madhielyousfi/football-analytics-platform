@@ -328,14 +328,21 @@ def push_unsubscribe(sub: PushEndpoint):
 
 @app.get("/api/live")
 def live(league_id: Optional[int] = None, limit: int = Query(100, le=500)):
-    """Live now + recent + upcoming fixtures from the API-Football backfill."""
+    """Live now first, then upcoming, then most recent backfilled results.
+
+    No hard date cutoff: on a free plan without current-season access the
+    board still shows the freshest window in the warehouse.
+    """
     placeholders = ", ".join("?" for _ in LIVE_STATUSES)
     params: list = [league_id, league_id, *LIVE_STATUSES, *LIVE_STATUSES, limit]
     where = f"""WHERE (? IS NULL OR f.league_id = ?)
-                 AND (f.status_short IN ({placeholders})
-                      OR f.fixture_date >= current_date - INTERVAL 1 DAY)
-               ORDER BY CASE WHEN f.status_short IN ({placeholders}) THEN 0 ELSE 1 END,
-                        f.fixture_date LIMIT ?"""
+                ORDER BY CASE WHEN f.status_short IN ({placeholders}) THEN 0
+                              WHEN f.fixture_date >= current_date THEN 1
+                              ELSE 2 END,
+                         CASE WHEN f.status_short IN ({placeholders})
+                                OR f.fixture_date >= current_date
+                              THEN f.fixture_date END ASC NULLS LAST,
+                         f.fixture_date DESC LIMIT ?"""
     enriched = f"""SELECT f.fixture_id, f.league_id, f.league_name, f.season, f.round,
                f.fixture_date, f.status_long, f.status_short, f.elapsed,
                f.home_team_id, f.home_team_name, hd.crest_url AS home_crest_url,

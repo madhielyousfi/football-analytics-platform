@@ -84,11 +84,14 @@ def main() -> None:
                    away_team_id, away_team_name, NULL AS away_crest_url,
                    goals_home, goals_away
                    FROM raw_af.fixtures
-                   WHERE status_short IN ('1H','HT','2H','ET','BT','P','SUSP','INT','LIVE')
-                      OR fixture_date >= current_date - INTERVAL 1 DAY
                    ORDER BY CASE WHEN status_short IN
-                     ('1H','HT','2H','ET','BT','P','SUSP','INT','LIVE') THEN 0 ELSE 1 END,
-                     fixture_date LIMIT 100""",
+                     ('1H','HT','2H','ET','BT','P','SUSP','INT','LIVE') THEN 0
+                     WHEN fixture_date >= current_date THEN 1 ELSE 2 END,
+                     CASE WHEN status_short IN
+                       ('1H','HT','2H','ET','BT','P','SUSP','INT','LIVE')
+                       OR fixture_date >= current_date
+                       THEN fixture_date END ASC NULLS LAST,
+                     fixture_date DESC LIMIT 100""",
             )
         except duckdb.CatalogException:
             live = []
