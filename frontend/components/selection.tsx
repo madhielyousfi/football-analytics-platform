@@ -38,8 +38,13 @@ export function SelectionProvider({ children }: { children: React.ReactNode }) {
     if (found && found.seasons.includes(savedS)) {
       setCid(savedC); setSeason(savedS); return;
     }
-    setCid((p) => p ?? data[0].competition_id);
-    setSeason((p) => p ?? data[0].seasons[0]);
+    // Default to the most recent season available (not alphabetical first),
+    // so a new cup never hijacks the landing view from the current league.
+    const latest = [...data].sort(
+      (a, b) => Math.max(...b.seasons) - Math.max(...a.seasons),
+    )[0];
+    setCid((p) => p ?? latest.competition_id);
+    setSeason((p) => p ?? Math.max(...latest.seasons));
   }, [data]);
 
   const setSelection = useCallback((c: number, s: number) => {

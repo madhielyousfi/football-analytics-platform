@@ -55,6 +55,7 @@ function Row({ m }: { m: LiveFixture }) {
 
 export default function LivePage() {
   const [league, setLeague] = useState<string>("");
+  const [season, setSeason] = useState<string>("");
   const { teams: favTeams, fixtures: favFixtures } = useFavorites();
   const feed = useQuery({
     queryKey: ["live"],
@@ -65,18 +66,25 @@ export default function LivePage() {
     },
   });
 
+  // All hooks above any early return: hook count must never change renders.
   const leagues = useMemo(() => {
     const map = new Map<number, string>();
     (feed.data ?? []).forEach((m) => map.set(m.league_id, m.league_name));
     return Array.from(map.entries());
   }, [feed.data]);
+  const seasons = useMemo(
+    () => Array.from(new Set((feed.data ?? []).map((m) => m.season))).sort((a, b) => b - a),
+    [feed.data],
+  );
+  const favNames = useMemo(() => new Set(favTeams.map((t) => normTeam(t.name))), [favTeams]);
+  const favIds = useMemo(() => new Set(favFixtures.map((f) => f.id)), [favFixtures]);
 
   if (feed.isLoading) return (<div className="flex flex-col gap-4"><PageHeader eyebrow="Live" title="Live board" /><SkeletonGrid /></div>);
   if (feed.isError) return <Empty msg="API unreachable. Run `make api` first." />;
 
-  const rows = (feed.data ?? []).filter((m) => !league || m.league_id === Number(league));
-  const favNames = useMemo(() => new Set(favTeams.map((t) => normTeam(t.name))), [favTeams]);
-  const favIds = useMemo(() => new Set(favFixtures.map((f) => f.id)), [favFixtures]);
+  const rows = (feed.data ?? []).filter(
+    (m) => (!league || m.league_id === Number(league)) && (!season || m.season === Number(season)),
+  );
   const mine = rows.filter((m) => favIds.has(m.fixture_id) || favNames.has(normTeam(m.home_team_name)) || favNames.has(normTeam(m.away_team_name)));
   const live = rows.filter(isLive);
   const upcoming = rows.filter((m) => !isLive(m) && !isFinished(m));
@@ -95,7 +103,7 @@ export default function LivePage() {
             : <span className="badge border-white/10 bg-white/5 text-muted">○ Idle</span>}
         </span>}
       />
-      <div className="card mb-4 grid gap-3 sm:max-w-md">
+      <div className="card mb-4 grid gap-3 sm:grid-cols-2 sm:max-w-xl">
         <div>
           <label className="mb-1 block text-xs text-muted">League</label>
           <select className="input" value={league} onChange={(e) => setLeague(e.target.value)}>
@@ -103,7 +111,15 @@ export default function LivePage() {
             {leagues.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
         </div>
+        <div>
+          <label className="mb-1 block text-xs text-muted">Season</label>
+          <select className="input" value={season} onChange={(e) => setSeason(e.target.value)}>
+            <option value="">All seasons</option>
+            {seasons.map((s) => <option key={s} value={s}>{s}/{String(s + 1).slice(2)}</option>)}
+          </select>
+        </div>
       </div>
+      <p className="mb-4 text-xs text-faint">Live board follows the current window (recent + upcoming). Browse full seasons in Matches, League or Tournaments via the sidebar filters.</p>
 
       {rows.length === 0 ? (
         <Empty msg="No fixtures in the live window. Run `make af-backfill` (needs API_FOOTBALL_KEY) to load today's games." />
