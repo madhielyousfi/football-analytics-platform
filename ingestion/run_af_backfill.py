@@ -8,6 +8,7 @@ Usage:
     python -m ingestion.run_af_backfill --league 39 --season 2026 --max-events 10
     python -m ingestion.run_af_backfill --league 39 --season 2026 --max-depth 3 --include-odds
 Requires API_FOOTBALL_KEY in .env. Depth costs ~3 calls/fixture (+1 odds).
+Pacing (--pace-seconds, default 6) keeps the free plan's per-minute cap happy.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import time
 from uuid import uuid4
 
 from ingestion.api_football_client import (
@@ -47,7 +49,8 @@ FINISHED = {"FT", "AET", "PEN"}
 
 def _load_depth(connection, client: ApiFootballClient, config: Config,
                 run_id: str, fixture_id: int, include_odds: bool,
-                received: int, inserted: int, updated: int) -> tuple[int, int, int]:
+                received: int, inserted: int, updated: int,
+                pace_seconds: float = 0) -> tuple[int, int, int]:
     """Fetch lineups, stats, players (+odds) for one fixture with quota checks."""
     for table, key, fetch, build in (
         ("lineups", "lineup_key", client.get_lineups,
@@ -60,6 +63,8 @@ def _load_depth(connection, client: ApiFootballClient, config: Config,
         check_daily_quota(connection, needed=1,
                           daily_limit=config.api_football_daily_limit,
                           abort_at=config.api_football_abort_at)
+        if pace_seconds > 0:
+            time.sleep(pace_seconds)
         payload = fetch(fixture_id)
         record_call(connection)
         items = payload.get("response", [])
@@ -74,6 +79,8 @@ def _load_depth(connection, client: ApiFootballClient, config: Config,
         check_daily_quota(connection, needed=1,
                           daily_limit=config.api_football_daily_limit,
                           abort_at=config.api_football_abort_at)
+        if pace_seconds > 0:
+            time.sleep(pace_seconds)
         payload = client.get_odds(fixture_id=fixture_id)
         record_call(connection)
         items = payload.get("response", [])
@@ -91,6 +98,7 @@ def _load_depth(connection, client: ApiFootballClient, config: Config,
 def backfill(config: Config, league_id: int, season: int,
              max_events: int = 10, max_depth: int = 0,
              include_odds: bool = False, load_injuries: bool = False,
+             pace_seconds: float = 0,
              client: ApiFootballClient | None = None) -> str:
     """Fetch fixtures + capped events (+ optional depth/injuries). Returns run_id.
 
@@ -103,6 +111,10 @@ def backfill(config: Config, league_id: int, season: int,
                                          config.api_football_base_url)
     run_id = str(uuid4())
     LOGGER.info("Starting API-Football backfill: league=%s season=%s", league_id, season)
+
+    def pace() -> None:
+        if pace_seconds > 0:
+            time.sleep(pace_seconds)
     with connect(config.duckdb_path) as connection:
         create_tables(connection)
         start_run(connection, run_id, pipeline="af_backfill")
@@ -138,6 +150,7 @@ def backfill(config: Config, league_id: int, season: int,
                 check_daily_quota(connection, needed=1,
                                   daily_limit=config.api_football_daily_limit,
                                   abort_at=config.api_football_abort_at)
+                pace()
                 events = client.get_fixture_events(fixture_id).get("response", [])
                 record_call(connection)
                 if not isinstance(events, list):
@@ -160,11 +173,12 @@ def backfill(config: Config, league_id: int, season: int,
                 for fixture_id in deep:
                     received, inserted, updated = _load_depth(
                         connection, client, config, run_id, fixture_id, include_odds,
-                        received, inserted, updated)
+                        received, inserted, updated, pace_seconds)
             if load_injuries:
                 check_daily_quota(connection, needed=1,
                                   daily_limit=config.api_football_daily_limit,
                                   abort_at=config.api_football_abort_at)
+                pace()
                 injuries = client.get_injuries(league_id, season).get("response", [])
                 record_call(connection)
                 if not isinstance(injuries, list):
@@ -201,12 +215,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-depth", type=int, default=0)
     parser.add_argument("--include-odds", action="store_true")
     parser.add_argument("--load-injuries", action="store_true")
+    parser.add_argument("--pace-seconds", type=float, default=6.0)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     try:
         config = Config.from_env()
         backfill(config, args.league, args.season, args.max_events,
-                 args.max_depth, args.include_odds, args.load_injuries)
+                 args.max_depth, args.include_odds, args.load_injuries,
+                 args.pace_seconds)
         return 0
     except Exception as exc:
         LOGGER.error("Backfill stopped: %s", exc)

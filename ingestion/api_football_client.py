@@ -97,9 +97,14 @@ class ApiFootballClient:
                 if response.status_code == 429 or 500 <= response.status_code < 600:
                     if attempt < self.max_retries:
                         retry_after = response.headers.get("Retry-After", "")
-                        delay = min(float(retry_after), 30) if retry_after.isdigit() else min(2 ** attempt, 30)
-                        LOGGER.warning("API-Football status %s on %s; retrying",
-                                       response.status_code, endpoint)
+                        if retry_after.isdigit():
+                            delay = min(float(retry_after), 60)
+                        elif response.status_code == 429:
+                            delay = min(10 * (attempt + 1), 60)
+                        else:
+                            delay = min(2 ** attempt, 30)
+                        LOGGER.warning("API-Football status %s on %s; retrying in %ss",
+                                       response.status_code, endpoint, delay)
                         time.sleep(delay)
                         continue
                 response.raise_for_status()
