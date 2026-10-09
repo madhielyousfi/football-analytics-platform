@@ -595,6 +595,30 @@ def knockout(competition_id: int, season: int):
         return JSONResponse(content=[])
 
 
+@app.get("/api/fd-match")
+def fd_match(match_id: int):
+    """Header for a football-data.org match (fallback when no AF depth exists)."""
+    try:
+        rows = fetch(
+            """SELECT f.match_id, f.match_date, f.match_status, f.matchday,
+               f.competition_id, f.season, c.competition_name,
+               f.home_team_id, home.team_name AS home_team, home.crest_url AS home_crest_url,
+               f.away_team_id, away.team_name AS away_team, away.crest_url AS away_crest_url,
+               f.home_goals, f.away_goals
+               FROM marts.fact_matches f
+               JOIN marts.dim_competition c USING (competition_id)
+               JOIN marts.dim_team home ON f.home_team_id = home.team_id
+               JOIN marts.dim_team away ON f.away_team_id = away.team_id
+               WHERE f.match_id = ?""", [match_id])
+        if not rows:
+            raise HTTPException(status_code=404, detail="Match not found")
+        return rows[0]
+    except HTTPException:
+        raise
+    except Exception:
+        return JSONResponse(content={})
+
+
 @app.get("/api/fixture-resolve")
 def fixture_resolve(fd_match_id: int):
     """Map a football-data.org match id to its API-Football fixture (or null)."""

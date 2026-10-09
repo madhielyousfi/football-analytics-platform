@@ -5,7 +5,7 @@
 with knockout as (
     select * from {{ ref('stg_matches') }}
     where stage is not null
-        and stage not in ('REGULAR_SEASON', 'GROUP_STAGE')
+        and stage not in ('REGULAR_SEASON', 'GROUP_STAGE', 'LEAGUE_STAGE')
 )
 
 select
@@ -14,6 +14,7 @@ select
     k.season,
     k.stage,
     case k.stage
+        when 'PLAYOFFS' then 5
         when 'LAST_16' then 10
         when 'ROUND_OF_16' then 10
         when 'QUARTER_FINALS' then 20

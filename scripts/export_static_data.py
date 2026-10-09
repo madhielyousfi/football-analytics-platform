@@ -134,6 +134,23 @@ def main() -> None:
         write(out / "af-resolve.json",
               {str(r["fd_match_id"]): r["fixture_id"] for r in resolve_rows})
         try:
+            write(out / "fd-matches.json", fetch(
+                con,
+                """SELECT f.match_id, f.match_date, f.match_status, f.matchday,
+                   f.competition_id, f.season, c.competition_name,
+                   f.home_team_id, home.team_name AS home_team,
+                   home.crest_url AS home_crest_url,
+                   f.away_team_id, away.team_name AS away_team,
+                   away.crest_url AS away_crest_url,
+                   f.home_goals, f.away_goals
+                   FROM marts.fact_matches f
+                   JOIN marts.dim_competition c USING (competition_id)
+                   JOIN marts.dim_team home ON f.home_team_id = home.team_id
+                   JOIN marts.dim_team away ON f.away_team_id = away.team_id
+                   LIMIT 3000"""))
+        except duckdb.CatalogException:
+            write(out / "fd-matches.json", [])
+        try:
             write(out / "af-lineups.json", fetch(
                 con,
                 """SELECT fixture_id, team_id, team_name, formation, coach_name,

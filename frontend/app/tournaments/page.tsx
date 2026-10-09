@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { PageHeader, Empty, Crest, SkeletonGrid } from "@/components/ui";
-import type { Competition, GroupRow, KnockoutMatch } from "@/lib/types";
+import { LeagueTable } from "@/components/league-table";
+import type { Competition, GroupRow, KnockoutMatch, LeagueRow } from "@/lib/types";
 
 function prettyStage(stage: string): string {
   return stage.split("_").map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(" ")
@@ -49,6 +50,11 @@ export default function TournamentsPage() {
   const bracket = useQuery({
     queryKey: ["knockout", activeCid, activeSeason],
     queryFn: () => api<KnockoutMatch[]>("/api/knockout", { competition_id: activeCid, season: activeSeason }),
+    enabled: ready,
+  });
+  const leaguePhase = useQuery({
+    queryKey: ["league", activeCid, activeSeason],
+    queryFn: () => api<LeagueRow[]>("/api/league-table", { competition_id: activeCid, season: activeSeason }),
     enabled: ready,
   });
 
@@ -110,8 +116,7 @@ export default function TournamentsPage() {
 
       {groupNames.length > 0 && (
         <>
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-faint">Group stage</h2>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-faint">Group stage</h2>          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {groupNames.map((g) => (
               <div key={g} className="card">
                 <div className="card-title">{prettyGroup(g)} <span>top 2 advance</span></div>
@@ -137,6 +142,13 @@ export default function TournamentsPage() {
             ))}
           </div>
         </>
+      )}
+
+      {groupNames.length === 0 && (leaguePhase.data ?? []).length > 0 && (
+        <div className="card">
+          <div className="card-title">League phase <span>single table · top 8 advance</span></div>
+          <LeagueTable rows={leaguePhase.data ?? []} />
+        </div>
       )}
 
       {rounds.length > 0 && (

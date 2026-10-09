@@ -3,10 +3,11 @@ import { snapshotFile } from "@/lib/snapshot";
 
 export function generateStaticParams(): { fdid: string }[] {
   const map = snapshotFile("af-resolve.json") as Record<string, number> | null;
-  const ids = Object.keys(map ?? {}).map((fdid) => ({ fdid }));
-  // Static export requires at least one prerendered path; "0" renders the
-  // "no detail yet" state until real backfill data exists.
-  return ids.length > 0 ? ids : [{ fdid: "0" }];
+  const ids = new Set<string>(Object.keys(map ?? {}));
+  const fd = snapshotFile("fd-matches.json") as { match_id: number }[] | null;
+  (Array.isArray(fd) ? fd : []).slice(0, 2000).forEach((r) => ids.add(String(r.match_id)));
+  const list = Array.from(ids);
+  return (list.length > 0 ? list : ["0"]).map((fdid) => ({ fdid }));
 }
 
 export default function ResolvePage({ params }: { params: { fdid: string } }) {

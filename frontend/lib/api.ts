@@ -56,6 +56,10 @@ async function apiStatic<T>(path: string, params: Record<string, string | number
       const af = map[String(params["fd_match_id"])];
       return { fixture_id: af ?? null } as T;
     }
+    case "/api/fd-match": {
+      const rows = await getJson<any[]>("fd-matches.json").catch(() => []);
+      return (rows.find((r) => r.match_id === Number(params["match_id"])) ?? {}) as T;
+    }
     case "/api/fixture-lineups":
     case "/api/fixture-stats":
     case "/api/fixture-players":

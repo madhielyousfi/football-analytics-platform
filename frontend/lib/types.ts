@@ -90,6 +90,13 @@ export type KnockoutMatch = {
   away_team_id: number; away_team_name?: string | null; away_crest_url?: string | null;
   home_goals?: number | null; away_goals?: number | null;
 };
+export type FdMatch = {
+  match_id: number; match_date: string; match_status: string; matchday?: number | null;
+  competition_id: number; season: number; competition_name?: string | null;
+  home_team_id: number; home_team: string; home_crest_url?: string | null;
+  away_team_id: number; away_team: string; away_crest_url?: string | null;
+  home_goals?: number | null; away_goals?: number | null;
+};
 export type ScorerRow = {
   player_id: number; player_name?: string | null; team_name?: string | null;
   league_name?: string | null; appearances: number; goals: number; assists: number;
