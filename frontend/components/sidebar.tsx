@@ -7,15 +7,15 @@ import clsx from "clsx";
 import { useSelection } from "./selection";
 
 const NAV = [
-  { href: "/", label: "Overview", icon: Home },
-  { href: "/live", label: "Live", icon: Zap },
-  { href: "/league", label: "League", icon: Trophy },
-  { href: "/tournaments", label: "Cups", icon: Medal },
-  { href: "/teams", label: "Teams", icon: Shield },
-  { href: "/players", label: "Players", icon: Users },
-  { href: "/matches", label: "Matches", icon: CalendarDays },
-  { href: "/head-to-head", label: "Head-to-Head", icon: Swords },
-  { href: "/pipeline", label: "Pipeline", icon: Activity },
+  { href: "/", label: "Overview", short: "Home", icon: Home },
+  { href: "/live", label: "Live", short: "Live", icon: Zap },
+  { href: "/league", label: "League", short: "League", icon: Trophy },
+  { href: "/tournaments", label: "Cups", short: "Cups", icon: Medal },
+  { href: "/teams", label: "Teams", short: "Teams", icon: Shield },
+  { href: "/players", label: "Players", short: "Players", icon: Users },
+  { href: "/matches", label: "Matches", short: "Matches", icon: CalendarDays },
+  { href: "/head-to-head", label: "Head-to-Head", short: "H2H", icon: Swords },
+  { href: "/pipeline", label: "Pipeline", short: "Pipeline", icon: Activity },
 ];
 
 export function Sidebar() {
@@ -69,15 +69,20 @@ export function Sidebar() {
 export function MobileNav() {
   const path = usePathname();
   return (
-    <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-line bg-[#0D121C]/95 backdrop-blur px-2 py-2 grid grid-cols-9 gap-1">
-      {NAV.map((n) => {
-        const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
-        return (
-          <Link key={n.href} href={n.href} className={clsx("flex flex-col items-center gap-1 rounded-lg py-1.5 text-[0.62rem] font-semibold", active ? "text-pitch" : "text-muted")}>
-            <n.icon size={18} /> {n.label.split("-")[0]}
-          </Link>
-        );
-      })}
+    <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-line bg-[#0D121C]/95 backdrop-blur"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <div className="flex gap-1 overflow-x-auto px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {NAV.map((n) => {
+          const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
+          return (
+            <Link key={n.href} href={n.href} aria-current={active ? "page" : undefined}
+              className={clsx("flex min-w-[62px] flex-1 shrink-0 flex-col items-center gap-1 rounded-lg px-1 py-1.5 text-[0.62rem] font-semibold",
+                active ? "bg-pitch/10 text-pitch" : "text-muted")}>
+              <n.icon size={18} /> {n.short}
+            </Link>
+          );
+        })}
+      </div>
     </nav>
   );
 }

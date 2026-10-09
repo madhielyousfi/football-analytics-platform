@@ -9,7 +9,7 @@
 html, body { background: #070B12; color: #F8FAFC; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
 
 @layer components {
-  .card { @apply rounded-2xl border border-line bg-surface shadow-card p-5; }
+  .card { @apply rounded-2xl border border-line bg-surface shadow-card p-4 sm:p-5; }
   .card-title { @apply flex items-center justify-between gap-2 text-[0.95rem] font-bold text-white mb-3; }
   .card-sub { @apply text-xs font-medium text-faint; }
   .eyebrow { @apply text-pitch text-[0.7rem] font-bold uppercase tracking-[0.17em] mb-2; }

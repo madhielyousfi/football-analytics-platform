@@ -74,7 +74,7 @@ export default function FixtureClient({ id }: { id: string }) {
           onToggle={() => toggleFixture({ id: fx.fixture_id, label: `${fx.home_team_name} vs ${fx.away_team_name}` })} />} />
       <div className="card">
         <div className="flex items-center justify-between gap-4 py-2">
-          <div className="flex flex-1 flex-col items-center gap-2 text-center">
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
             <Crest name={fx.home_team_name} url={fx.home_crest_url} size={52} />
             <b className="text-white">{fx.home_team_name}</b>
             <span className="text-[0.65rem] text-faint">HOME</span>
@@ -87,7 +87,7 @@ export default function FixtureClient({ id }: { id: string }) {
             )}
             <p className="mt-2 text-xs text-faint">{fx.elapsed != null ? `${fx.elapsed}′` : fx.status_long ?? ""}</p>
           </div>
-          <div className="flex flex-1 flex-col items-center gap-2 text-center">
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
             <Crest name={fx.away_team_name} url={fx.away_crest_url} size={52} />
             <b className="text-white">{fx.away_team_name}</b>
             <span className="text-[0.65rem] text-faint">AWAY</span>

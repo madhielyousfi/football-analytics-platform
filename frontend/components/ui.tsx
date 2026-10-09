@@ -26,12 +26,12 @@ export function FormBadge({ form }: { form?: string | null }) {
 export function PageHeader({ eyebrow, title, sub, right }: { eyebrow: string; title: string; sub?: string; right?: React.ReactNode }) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-      <div>
+      <div className="min-w-0 flex-1 basis-56">
         <p className="eyebrow">{eyebrow}</p>
-        <h1 className="h-display">{title}</h1>
+        <h1 className="h-display break-words">{title}</h1>
         {sub && <p className="subtle">{sub}</p>}
       </div>
-      {right && <div className="flex items-center gap-2">{right}</div>}
+      {right && <div className="flex flex-wrap items-center gap-2">{right}</div>}
     </div>
   );
 }
