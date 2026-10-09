@@ -74,6 +74,16 @@ Mobile gets inline filter selects + bottom tab bar; desktop keeps the sidebar.
   client-side independent-Poisson engine (`lib/predict.ts`): 1X2, expected
   goals, over 2.5, BTTS and top scorelines on the head-to-head page. Season
   averages only — labeled as such, no xG or rho correction.
+
+## Automation loop (no manual copies)
+- `live-poll.yml` (Sat/Sun match windows): restores the warehouse artifact,
+  seeds from scratch when absent (FD ingest + dbt + AF backfill + team map),
+  polls today's fixtures inside quota, re-uploads. Needs `API_FOOTBALL_KEY`;
+  goal sending needs `VAPID_*` + `APP_BASE_URL`.
+- `demo-refresh.yml` (Mondays + manual): rebuilds and commits
+  `data/demo.duckdb`; the Pages workflow redeploys automatically.
+- Secrets required: `FOOTBALL_API_TOKEN`, `API_FOOTBALL_KEY`, `VAPID_PUBLIC_KEY`,
+  `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `APP_BASE_URL`.
 - Local static preview: `make web-static`, then serve `frontend/out`.
 - Full stack → Vercel (frontend, `NEXT_PUBLIC_API_URL`) + Render/Fly
   (`uvicorn api.main:app`, `CORS_ORIGINS` set to the Vercel URL).

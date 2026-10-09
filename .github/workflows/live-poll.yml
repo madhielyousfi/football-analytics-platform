@@ -1,8 +1,9 @@
 name: Live poll (API-Football)
 
-# Cheap match-window poller: restores the warehouse from the latest artifact,
-# refreshes today's fixtures + live/finished events inside the quota budget,
-# then re-uploads the DB for the next run. Skipped without API_FOOTBALL_KEY.
+# Match-window poller with a self-seeding warehouse loop:
+# restore DB artifact -> seed from scratch when absent (FD ingest + dbt +
+# AF backfill + team map) -> poll today's fixtures -> re-upload for next run.
+# Skips API steps without API_FOOTBALL_KEY; push sending needs VAPID_*.
 
 on:
   schedule:
@@ -26,9 +27,15 @@ concurrency:
 jobs:
   poll:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     env:
       API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      FOOTBALL_API_TOKEN: ${{ secrets.FOOTBALL_API_TOKEN }}
+      FOOTBALL_COMPETITION: ${{ vars.FOOTBALL_COMPETITION || 'PL' }}
+      FOOTBALL_SEASON: ${{ vars.FOOTBALL_SEASON || '2026' }}
+      VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+      VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
+      APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
       DUCKDB_PATH: data/football.duckdb
     steps:
       - uses: actions/checkout@v4
@@ -45,8 +52,16 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install poller dependencies
-        run: python -m pip install duckdb requests python-dotenv
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Seed warehouse when starting fresh
+        if: hashFiles('data/football.duckdb') == ''
+        run: |
+          python -m ingestion.run_ingestion
+          cd football_dbt && dbt build --profiles-dir . && cd ..
+          python -m ingestion.run_af_backfill --league ${{ inputs.league || '39' }} --season 2024 --max-events 10
+          python -m scripts.build_team_map --league ${{ inputs.league || '39' }} --season 2024
 
       - name: Run live poll
         if: env.API_FOOTBALL_KEY != ''

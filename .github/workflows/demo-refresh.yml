@@ -1,0 +1,51 @@
+name: Refresh demo warehouse
+
+# Rebuilds data/demo.duckdb weekly so the GitHub Pages demo tracks fresh
+# data without manual copies. The Pages workflow picks it up on push.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      FOOTBALL_API_TOKEN: ${{ secrets.FOOTBALL_API_TOKEN }}
+      FOOTBALL_COMPETITION: ${{ vars.FOOTBALL_COMPETITION || 'PL' }}
+      FOOTBALL_SEASON: ${{ vars.FOOTBALL_SEASON || '2026' }}
+      DUCKDB_PATH: data/football.duckdb
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Ingest and build marts
+        run: |
+          python -m ingestion.run_ingestion
+          cd football_dbt && dbt build --profiles-dir . && cd ..
+
+      - name: Backfill API-Football depth
+        if: env.API_FOOTBALL_KEY != ''
+        run: |
+          python -m ingestion.run_af_backfill --league 39 --season 2024 --max-events 10
+          python -m scripts.build_team_map --league 39 --season 2024
+
+      - name: Commit refreshed demo database
+        run: |
+          cp data/football.duckdb data/demo.duckdb
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/demo.duckdb
+          git diff --cached --quiet && echo "No demo changes" || (git commit -m "Refresh demo warehouse snapshot" && git push)

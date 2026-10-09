@@ -152,6 +152,9 @@ class ApiFootballClient:
     def get_leagues(self) -> dict[str, Any]:
         return self._get("/leagues")
 
+    def get_teams(self, league: int, season: int) -> dict[str, Any]:
+        return self._get("/teams", {"league": league, "season": season})
+
     def get_standings(self, league: int, season: int) -> dict[str, Any]:
         return self._get("/standings", {"league": league, "season": season})
 
