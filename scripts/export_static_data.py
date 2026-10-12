@@ -64,6 +64,21 @@ def main() -> None:
         write(out / "competitions.json", list(grouped.values()))
 
         try:
+            meta_rows = fetch(
+                con,
+                """SELECT max(completed_at) AS last_success
+                   FROM metadata.pipeline_runs
+                   WHERE pipeline_name = 'football_ingestion' AND status = 'SUCCESS'""")
+            meta_counts = fetch("SELECT COUNT(*) AS matches FROM marts.fact_matches")
+            write(out / "meta.json", {
+                "source": "football-data.org", "delayed": True,
+                "last_success": meta_rows[0]["last_success"] if meta_rows else None,
+                "matches": meta_counts[0]["matches"] if meta_counts else 0})
+        except duckdb.CatalogException:
+            write(out / "meta.json", {"source": "football-data.org", "delayed": True,
+                                      "last_success": None, "matches": 0})
+
+        try:
             runs = fetch(
                 con,
                 """SELECT run_id, pipeline_name, started_at, completed_at, status,
@@ -270,6 +285,30 @@ def main() -> None:
                    FROM marts.mart_league_table l LEFT JOIN marts.dim_team t ON l.team_id=t.team_id
                    WHERE l.competition_id=? AND l.season=? ORDER BY l.position""", p)
             write(cs / "league-table.json", league)
+
+            write(cs / "upcoming.json", fetch(
+                con,
+                """SELECT f.match_id, f.match_date, home.team_name AS home_team,
+                   home.crest_url AS home_crest_url, away.team_name AS away_team,
+                   away.crest_url AS away_crest_url, f.match_status, f.matchday
+                   FROM marts.fact_matches AS f
+                   JOIN marts.dim_team AS home ON f.home_team_id = home.team_id
+                   JOIN marts.dim_team AS away ON f.away_team_id = away.team_id
+                   WHERE f.competition_id = ? AND f.season = ? AND NOT f.is_completed
+                   ORDER BY f.match_date, f.match_id LIMIT 20""", p))
+            try:
+                official = fetch(
+                    con,
+                    """SELECT position, team_id, team_name, played_games AS played,
+                       wins, draws, losses, goals_for, goals_against,
+                       goal_difference, points
+                       FROM staging.stg_standings
+                       WHERE competition_id = ? AND season = ?
+                         AND standing_type = 'TOTAL'
+                       ORDER BY position""", p)
+            except duckdb.CatalogException:
+                official = []
+            write(cs / "official-table.json", official)
 
             try:
                 groups = fetch(

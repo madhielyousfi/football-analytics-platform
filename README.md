@@ -62,16 +62,18 @@ Set `FOOTBALL_API_TOKEN` in `.env` using a football-data.org token. Set `FOOTBAL
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `FOOTBALL_API_TOKEN` | Required | API credential; keep it in `.env` or GitHub Secrets. |
+| `FOOTBALL_API_TOKEN` | Required | API credential; keep it in `.env` or GitHub Secrets. (No `FOOTBALL_DATA_API_KEY` exists; this is the equivalent.) |
 | `FOOTBALL_API_BASE_URL` | API v4 URL | API root. |
-| `FOOTBALL_COMPETITION` | `PL` | Competition code. |
-| `FOOTBALL_SEASON` | `2026` | Season starting year. |
+| `FOOTBALL_COMPETITION` | `PL` | Single competition code (legacy; first entry wins when `FOOTBALL_COMPETITIONS` is set). |
+| `FOOTBALL_COMPETITIONS` | `PL,PD,BL1,SA,FL1` | Comma-separated codes refreshed together. |
+| `FOOTBALL_SEASON` | `auto` | Season starting year, or `auto` to discover the current season from API metadata. |
 | `DUCKDB_PATH` | `data/football.duckdb` | Local warehouse file. |
 | `FOOTBALL_REFRESH_DAYS_BACK` | `3` | Days before today included on repeat local runs. |
 | `FOOTBALL_REFRESH_DAYS_FORWARD` | `7` | Days after today included on repeat local runs. |
 | `FOOTBALL_FULL_REFRESH` | `false` | Set to `true` for a full season reload. |
 | `FOOTBALL_API_TIMEOUT` | `30` | HTTP timeout in seconds. |
 | `FOOTBALL_API_MAX_RETRIES` | `3` | Retries for transient errors. |
+| `FOOTBALL_API_PACE_SECONDS` | `7.0` | Delay before every API call; keeps the free 10 calls/minute limit. |
 | `API_FOOTBALL_KEY` | Empty (disabled) | Free api-sports key for live scores, events, lineups, players, odds. |
 | `API_FOOTBALL_DAILY_LIMIT` | `100` | Free-plan daily request budget. |
 | `API_FOOTBALL_ABORT_AT` | `90` | Stop before hitting the budget; counted in `metadata.api_quota`. |
@@ -186,9 +188,12 @@ make dbt-build
 make dashboard
 make test
 make pipeline
+make refresh
 make af-backfill
 make live-poll
 ```
+
+`make refresh` ingests all configured competitions (defaults `PL,PD,BL1,SA,FL1`, season `auto`) with per-call pacing; `make pipeline` performs ingestion followed by `dbt build`.
 
 `make pipeline` performs ingestion followed by `dbt build`. That dbt command includes data tests, so it does not run `dbt test` again. `make dbt-run` and `make dbt-test` are available for narrower checks.
 
@@ -205,7 +210,9 @@ The [pipeline workflow](.github/workflows/pipeline.yml) runs daily at 05:17 UTC 
 
 GitHub-hosted runners are ephemeral. The scheduled workflow starts from a fresh database each day, so it performs a full season load despite the local runner's incremental support. Its database does **not** persist on the runner and does not automatically update a local dashboard. Download the successful run's `football-analytics-<run id>` artifact from the Actions page, extract `football.duckdb` into `data/`, and run the dashboard against it. Artifact retention is for demonstrations; longer-lived or deployed analytics storage can be added later.
 
-The [live-poll workflow](.github/workflows/live-poll.yml) runs every 30 minutes on Sat/Sun 12:00–22:30 UTC or manually. Set repository secret `API_FOOTBALL_KEY` (free api-sports key) before using it. Each run restores `data/football.duckdb` from the previous `football-live-db` artifact, refreshes today's league fixtures plus events for live/finished matches inside the 100/day quota (`make live-poll` locally), then re-uploads the DB for the next run. Idle runs cost ~1 API call; quota exhaustion records a FAILED run and exits quietly until the next window.
+The [fd-refresh workflow](.github/workflows/fd-refresh.yml) refreshes current-season data for `PL,PD,BL1,SA,FL1` **every 6 hours** (01:00/07:00/13:00/19:00 UTC) or manually with an optional competitions input. Seasons auto-discover from API metadata. Each run restores `data/football.duckdb` from the previous `football-season-db` artifact (14-day retention) so history persists, runs `make refresh`-equivalent ingestion with per-call pacing under the free 10 calls/minute limit, then `dbt build`, then re-uploads. Per-competition `SKIPPED` rows (plan-locked/unavailable) never abort the others; genuine failures exit non-zero. Free football-data.org scores are **delayed, never live**.
+
+The [live-poll workflow](.github/workflows/live-poll.yml) no longer runs on a schedule: the API-Football free plan cannot access the current season, so scheduled polls could only record SKIPPED. Manual dispatch is kept for historical-season backfills. Its `football-live-db` artifact chain is superseded by `football-season-db`; historical API-Football tables (`raw_af.*`) are untouched.
 
 ## Verify the load
 

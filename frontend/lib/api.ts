@@ -97,6 +97,14 @@ async function apiStatic<T>(path: string, params: Record<string, string | number
       return getJson<T>(`${cs}/tournament-groups.json`);
     case "/api/knockout":
       return getJson<T>(`${cs}/knockout.json`);
+    case "/api/meta":
+      return getJson<T>("meta.json");
+    case "/api/upcoming": {
+      const rows = await getJson<any[]>(`${cs}/upcoming.json`).catch(() => []);
+      return rows.slice(0, Number(params["limit"] ?? 15)) as T;
+    }
+    case "/api/official-standings":
+      return getJson<T>(`${cs}/official-table.json`);
     case "/api/top-scorers": {
       let rows = await getJson<any[]>("af-top-scorers.json").catch(() => []);
       const lid = num(params["league_id"]);
@@ -209,4 +217,13 @@ export function fmt(n: number | null | undefined, digits = 0): string {
 
 export function initials(name: string): string {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+}
+
+export function timeAgo(iso?: string | null): string {
+  if (!iso) return "never";
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} hr ago`;
+  return `${Math.floor(s / 86400)} d ago`;
 }

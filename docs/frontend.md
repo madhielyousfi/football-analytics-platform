@@ -76,10 +76,12 @@ Mobile gets inline filter selects + bottom tab bar; desktop keeps the sidebar.
   averages only — labeled as such, no xG or rho correction.
 
 ## Automation loop (no manual copies)
-- `live-poll.yml` (Sat/Sun match windows): restores the warehouse artifact,
-  seeds from scratch when absent (FD ingest + dbt + AF backfill + team map),
-  polls today's fixtures inside quota, re-uploads. Needs `API_FOOTBALL_KEY`;
-  goal sending needs `VAPID_*` + `APP_BASE_URL`.
+- `fd-refresh.yml` (every 6 hours): restores the `football-season-db`
+  artifact, refreshes current seasons for all configured competitions with
+  pacing, runs `dbt build`, re-uploads. Data is delayed (free plan), never live.
+- `live-poll.yml` (manual dispatch only now): historical-season API-Football
+  backfills still work; the schedule is disabled since the free plan cannot
+  reach the current season. Goal sending still works when live data exists.
 - `demo-refresh.yml` (Mondays + manual): rebuilds and commits
   `data/demo.duckdb`; the Pages workflow redeploys automatically.
 - Secrets required: `FOOTBALL_API_TOKEN`, `API_FOOTBALL_KEY`, `VAPID_PUBLIC_KEY`,

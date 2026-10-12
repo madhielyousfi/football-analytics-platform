@@ -12,13 +12,15 @@ class Config:
     api_token: str
     api_base_url: str
     competition: str
-    season: int
+    season: int | None
     duckdb_path: Path
     api_timeout: int = 30
     api_max_retries: int = 3
     refresh_days_back: int = 3
     refresh_days_forward: int = 7
     full_refresh: bool = False
+    competitions: tuple[str, ...] = ("PL",)
+    api_pace_seconds: float = 7.0
     api_football_key: str = ""
     api_football_base_url: str = "https://v3.football.api-sports.io"
     api_football_daily_limit: int = 100
@@ -34,18 +36,35 @@ class Config:
         competition = os.getenv("FOOTBALL_COMPETITION", "PL").strip().upper()
         if not competition:
             raise ValueError("FOOTBALL_COMPETITION must not be empty")
-        season = int(os.getenv("FOOTBALL_SEASON", "2026"))
-        if not 2000 <= season <= 2100:
-            raise ValueError("FOOTBALL_SEASON must be a plausible start year")
+        raw_competitions = os.getenv("FOOTBALL_COMPETITIONS", "").strip().upper()
+        if raw_competitions:
+            competitions = tuple(code for code in
+                                 (part.strip() for part in raw_competitions.split(","))
+                                 if code)
+            if not competitions:
+                raise ValueError("FOOTBALL_COMPETITIONS must not be empty")
+            competition = competitions[0]
+        else:
+            competitions = (competition,)
+        season_text = os.getenv("FOOTBALL_SEASON", "").strip()
+        if season_text == "" or season_text.lower() == "auto":
+            season = None
+        else:
+            season = int(season_text)
+            if not 2000 <= season <= 2100:
+                raise ValueError("FOOTBALL_SEASON must be a plausible start year or auto")
         timeout = int(os.getenv("FOOTBALL_API_TIMEOUT", "30"))
         retries = int(os.getenv("FOOTBALL_API_MAX_RETRIES", "3"))
         days_back = int(os.getenv("FOOTBALL_REFRESH_DAYS_BACK", "3"))
         days_forward = int(os.getenv("FOOTBALL_REFRESH_DAYS_FORWARD", "7"))
+        pace_seconds = float(os.getenv("FOOTBALL_API_PACE_SECONDS", "7.0"))
         full_refresh_text = os.getenv("FOOTBALL_FULL_REFRESH", "false").strip().lower()
         if full_refresh_text not in {"true", "false", "1", "0", "yes", "no"}:
             raise ValueError("FOOTBALL_FULL_REFRESH must be true or false")
         if timeout < 1 or retries < 0 or days_back < 0 or days_forward < 0:
             raise ValueError("Timeout must be positive; retries and refresh days must be nonnegative")
+        if pace_seconds < 0:
+            raise ValueError("FOOTBALL_API_PACE_SECONDS must be nonnegative")
         daily_limit = int(os.getenv("API_FOOTBALL_DAILY_LIMIT", "100"))
         abort_at = int(os.getenv("API_FOOTBALL_ABORT_AT", "90"))
         if daily_limit < 1 or not 0 < abort_at <= daily_limit:
@@ -61,6 +80,8 @@ class Config:
             refresh_days_back=days_back,
             refresh_days_forward=days_forward,
             full_refresh=full_refresh_text in {"true", "1", "yes"},
+            competitions=competitions,
+            api_pace_seconds=pace_seconds,
             api_football_key=os.getenv("API_FOOTBALL_KEY", "").strip(),
             api_football_base_url=os.getenv(
                 "API_FOOTBALL_BASE_URL", "https://v3.football.api-sports.io").rstrip("/"),

@@ -1,0 +1,68 @@
+name: Current-season refresh (football-data.org)
+
+# Refreshes current-season data for the configured competitions every six
+# hours using the free football-data.org API (delayed scores — not live).
+# Restores the chained warehouse artifact so history persists across runs;
+# per-competition failures never abort the others (SKIPPED/FAILED rows in
+# metadata.pipeline_runs) and prior valid data is preserved by rollback.
+
+on:
+  schedule:
+    # Every 6 hours: 01:00, 07:00, 13:00, 19:00 UTC.
+    - cron: '0 1,7,13,19 * * *'
+  workflow_dispatch:
+    inputs:
+      competitions:
+        description: Comma-separated competition codes (blank = configured default)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: fd-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      FOOTBALL_API_TOKEN: ${{ secrets.FOOTBALL_API_TOKEN }}
+      FOOTBALL_COMPETITIONS: ${{ inputs.competitions || vars.FOOTBALL_COMPETITIONS || 'PL,PD,BL1,SA,FL1' }}
+      FOOTBALL_SEASON: auto
+      DUCKDB_PATH: data/football.duckdb
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore warehouse from latest run
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: fd-refresh.yml
+          name: football-season-db
+          path: data/
+          if_no_artifact_found: warn
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Refresh current seasons
+        run: python -m ingestion.run_ingestion
+
+      - name: Build and test dbt models
+        working-directory: football_dbt
+        run: dbt build --profiles-dir .
+
+      - name: Preserve warehouse for next refresh
+        uses: actions/upload-artifact@v4
+        with:
+          name: football-season-db
+          path: data/football.duckdb
+          if-no-files-found: error
+          retention-days: 14

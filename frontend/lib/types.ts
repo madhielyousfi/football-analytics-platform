@@ -97,6 +97,9 @@ export type FdMatch = {
   away_team_id: number; away_team: string; away_crest_url?: string | null;
   home_goals?: number | null; away_goals?: number | null;
 };
+export type Meta = {
+  source: string; delayed: boolean; last_success?: string | null; matches: number;
+};
 export type ScorerRow = {
   player_id: number; player_name?: string | null; team_name?: string | null;
   league_name?: string | null; appearances: number; goals: number; assists: number;

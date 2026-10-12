@@ -175,6 +175,14 @@ def finish_run(connection: duckdb.DuckDBPyConnection, run_id: str, status: str,
                                received, inserted, updated, error, run_id])
 
 
+def mark_skipped(connection: duckdb.DuckDBPyConnection, run_id: str,
+                 reason: str) -> None:
+    """Mark a started run SKIPPED with the reason (unavailable comp/season)."""
+    connection.execute("""UPDATE metadata.pipeline_runs
+        SET completed_at = ?, status = 'SKIPPED', error_message = ?
+        WHERE run_id = ?""", [datetime.now(timezone.utc), reason, run_id])
+
+
 def upsert_rows(connection: duckdb.DuckDBPyConnection, table: str, key: str,
                  rows: list[dict[str, Any]], schema: str = "raw") -> tuple[int, int]:
     """Replace keyed source records atomically within the caller's transaction."""

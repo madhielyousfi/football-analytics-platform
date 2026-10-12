@@ -33,6 +33,9 @@ install:
 ingest:
 	$(PYTHON) -m ingestion.run_ingestion
 
+refresh:
+	FOOTBALL_COMPETITIONS=$${FOOTBALL_COMPETITIONS:-PL,PD,BL1,SA,FL1} FOOTBALL_SEASON=auto $(PYTHON) -m ingestion.run_ingestion
+
 dbt-run:
 	cd football_dbt && ../$(DBT) run --profiles-dir .
 

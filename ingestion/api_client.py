@@ -14,26 +14,36 @@ class FootballDataClient:
 
     def __init__(self, token: str, base_url: str = "https://api.football-data.org/v4",
                  timeout: int = 30, max_retries: int = 3,
+                 pace_seconds: float = 0.0,
                  session: requests.Session | None = None) -> None:
         if not token:
             raise ValueError("API token is required")
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.max_retries = max_retries
+        self.pace_seconds = pace_seconds
         self.session = session or requests.Session()
         self.session.headers.update({"X-Auth-Token": token, "Accept": "application/json"})
 
     def _get(self, endpoint: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
         for attempt in range(self.max_retries + 1):
             try:
+                if self.pace_seconds > 0:
+                    time.sleep(self.pace_seconds)
                 response = self.session.get(
                     f"{self.base_url}{endpoint}", params=params, timeout=self.timeout
                 )
                 if response.status_code == 429 or 500 <= response.status_code < 600:
                     if attempt < self.max_retries:
                         retry_after = response.headers.get("Retry-After", "")
-                        delay = min(float(retry_after), 30) if retry_after.isdigit() else min(2 ** attempt, 30)
-                        LOGGER.warning("API status %s on %s; retrying", response.status_code, endpoint)
+                        if retry_after.isdigit():
+                            delay = min(float(retry_after), 60)
+                        elif response.status_code == 429:
+                            delay = min(15 * (attempt + 1), 60)
+                        else:
+                            delay = min(2 ** attempt, 30)
+                        LOGGER.warning("API status %s on %s; retrying in %ss",
+                                       response.status_code, endpoint, delay)
                         time.sleep(delay)
                         continue
                 response.raise_for_status()

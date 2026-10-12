@@ -1,13 +1,23 @@
 """Run full or rolling-window ingestion into DuckDB raw tables."""
 
 from datetime import date, datetime, timedelta, timezone
+import dataclasses
 import logging
 import sys
+import time
 from uuid import uuid4
 
 from ingestion.api_client import FootballDataClient
 from ingestion.config import Config
-from ingestion.database import connect, create_tables, finish_run, start_run, upsert_rows
+from ingestion.current_season import discover_season
+from ingestion.database import (
+    connect,
+    create_tables,
+    finish_run,
+    mark_skipped,
+    start_run,
+    upsert_rows,
+)
 from ingestion.ingest_competitions import competition_rows
 from ingestion.ingest_matches import match_rows
 from ingestion.ingest_standings import standing_rows
@@ -15,13 +25,16 @@ from ingestion.ingest_teams import team_rows
 
 LOGGER = logging.getLogger(__name__)
 
+SKIP_HTTP = ("HTTP 404", "HTTP 403", "HTTP 429")
+
 
 def ingest(config: Config, client: FootballDataClient | None = None,
-           today: date | None = None) -> str:
+           today: date | None = None, run_id: str | None = None) -> str:
     """Fetch source data and commit all raw tables as one batch."""
     client = client or FootballDataClient(config.api_token, config.api_base_url,
-                                          config.api_timeout, config.api_max_retries)
-    run_id = str(uuid4())
+                                          config.api_timeout, config.api_max_retries,
+                                          config.api_pace_seconds)
+    run_id = run_id or str(uuid4())
     LOGGER.info("Starting football ingestion: competition=%s season=%s", config.competition, config.season)
     with connect(config.duckdb_path) as connection:
         create_tables(connection)
@@ -112,14 +125,84 @@ def ingest(config: Config, client: FootballDataClient | None = None,
     return run_id
 
 
+def _record_skip(config: Config, run_id: str, competition: str, reason: str) -> None:
+    """Persist an honest SKIPPED run row without touching raw tables."""
+    with connect(config.duckdb_path) as connection:
+        create_tables(connection)
+        start_run(connection, run_id)
+        mark_skipped(connection, run_id, f"{competition}: {reason}")
+
+
+def ingest_all(config: Config, client: FootballDataClient | None = None,
+               today: date | None = None) -> dict[str, dict[str, str]]:
+    """Refresh every configured competition; per-competition run rows.
+
+    Returns {code: {"status": ..., "run_id": ...}}. A competition that is
+    absent, plan-locked, or season-less records SKIPPED and never aborts the
+    others. Genuine errors record FAILED inside ingest(); the summary lets
+    main() exit non-zero without hiding which competition failed.
+    """
+    client = client or FootballDataClient(config.api_token, config.api_base_url,
+                                          config.api_timeout, config.api_max_retries,
+                                          config.api_pace_seconds)
+    summary: dict[str, dict[str, str]] = {}
+    with connect(config.duckdb_path) as connection:
+        create_tables(connection)
+        try:
+            competitions = client.get_competitions().get("competitions", [])
+        except Exception as exc:
+            run_id = str(uuid4())
+            start_run(connection, run_id)
+            finish_run(connection, run_id, "FAILED", 0, 0, 0,
+                       f"competition listing failed: {exc}")
+            raise
+    if not isinstance(competitions, list):
+        raise ValueError("Invalid competitions list in API response")
+    for index, code in enumerate(config.competitions):
+        if index and config.api_pace_seconds > 0:
+            time.sleep(config.api_pace_seconds)
+        run_id = str(uuid4())
+        try:
+            season = config.season
+            if season is None:
+                season = discover_season(competitions, code)
+            single = dataclasses.replace(config, competition=code, season=season)
+            ingest(single, client=client, today=today, run_id=run_id)
+            summary[code] = {"status": "SUCCESS", "run_id": run_id}
+        except ValueError as exc:
+            _record_skip(config, run_id, code, str(exc))
+            LOGGER.error("Skipped %s: %s", code, exc)
+            summary[code] = {"status": "SKIPPED", "run_id": run_id}
+        except RuntimeError as exc:
+            if any(marker in str(exc) for marker in SKIP_HTTP):
+                with connect(config.duckdb_path) as connection:
+                    mark_skipped(connection, run_id,
+                                 f"{code}: unavailable ({exc})")
+                LOGGER.error("Skipped %s: %s", code, exc)
+                summary[code] = {"status": "SKIPPED", "run_id": run_id}
+            else:
+                LOGGER.exception("Failed %s: run_id=%s", code, run_id)
+                summary[code] = {"status": "FAILED", "run_id": run_id}
+    return summary
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     try:
-        ingest(Config.from_env())
-        return 0
+        summary = ingest_all(Config.from_env())
     except Exception as exc:
         LOGGER.error("Pipeline stopped: %s", exc)
         return 1
+    failed = sorted(code for code, row in summary.items() if row["status"] == "FAILED")
+    skipped = sorted(code for code, row in summary.items() if row["status"] == "SKIPPED")
+    LOGGER.info("Summary: %s",
+                ", ".join(f"{code}={row['status']}" for code, row in summary.items()))
+    if skipped:
+        LOGGER.info("Skipped competitions (data preserved): %s", ", ".join(skipped))
+    if failed:
+        LOGGER.error("Failed competitions: %s", ", ".join(failed))
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

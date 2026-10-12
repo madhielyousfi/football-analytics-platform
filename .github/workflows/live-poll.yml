@@ -6,9 +6,12 @@ name: Live poll (API-Football)
 # Skips API steps without API_FOOTBALL_KEY; push sending needs VAPID_*.
 
 on:
-  schedule:
-    # Every 30 min, Sat/Sun 12:00-22:30 UTC (European match windows).
-    - cron: '*/30 12-22 * * 6,0'
+  # Schedule disabled: the API-Football free plan cannot access the current
+  # season, so scheduled live polls can never go live (they record SKIPPED).
+  # Current-season refreshes now run in fd-refresh.yml (football-data.org).
+  # Manual dispatch is kept for historical-season backfills, which still work.
+  # schedule:
+  #   - cron: '*/30 12-22 * * 6,0'
   workflow_dispatch:
     inputs:
       league:

@@ -595,6 +595,59 @@ def knockout(competition_id: int, season: int):
         return JSONResponse(content=[])
 
 
+@app.get("/api/meta")
+def meta():
+    """Data source label + last successful football-data.org refresh."""
+    try:
+        rows = fetch(
+            """SELECT max(completed_at) AS last_success
+               FROM metadata.pipeline_runs
+               WHERE pipeline_name = 'football_ingestion' AND status = 'SUCCESS'""")
+        counts = fetch("SELECT COUNT(*) AS matches FROM marts.fact_matches")
+        last = rows[0]["last_success"] if rows else None
+        return {"source": "football-data.org", "delayed": True,
+                "last_success": last,
+                "matches": counts[0]["matches"] if counts else 0}
+    except HTTPException:
+        return JSONResponse(content={"source": "football-data.org",
+                                     "delayed": True, "last_success": None, "matches": 0})
+
+
+@app.get("/api/upcoming")
+def upcoming(competition_id: int, season: int, limit: int = Query(15, le=100)):
+    """Next scheduled fixtures (not completed), soonest first."""
+    try:
+        return fetch(
+            """SELECT f.match_id, f.match_date, home.team_name AS home_team,
+               home.crest_url AS home_crest_url, away.team_name AS away_team,
+               away.crest_url AS away_crest_url, f.match_status, f.matchday
+               FROM marts.fact_matches AS f
+               JOIN marts.dim_team AS home ON f.home_team_id = home.team_id
+               JOIN marts.dim_team AS away ON f.away_team_id = away.team_id
+               WHERE f.competition_id = ? AND f.season = ? AND NOT f.is_completed
+               ORDER BY f.match_date, f.match_id LIMIT ?""",
+            [competition_id, season, limit])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
+@app.get("/api/official-standings")
+def official_standings(competition_id: int, season: int):
+    """Official API standings (TOTAL rows) for comparison with the calculated table."""
+    try:
+        return fetch(
+            """SELECT position, team_id, team_name, played_games AS played,
+               wins, draws, losses,
+               goals_for, goals_against, goal_difference, points
+               FROM staging.stg_standings
+               WHERE competition_id = ? AND season = ?
+                 AND standing_type = 'TOTAL'
+               ORDER BY position""",
+            [competition_id, season])
+    except HTTPException:
+        return JSONResponse(content=[])
+
+
 @app.get("/api/fd-match")
 def fd_match(match_id: int):
     """Header for a football-data.org match (fallback when no AF depth exists)."""

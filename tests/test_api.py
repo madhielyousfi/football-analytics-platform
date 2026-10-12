@@ -18,6 +18,7 @@ EXPECTED = {
     "/api/team-strengths",
     "/api/tournament-groups", "/api/knockout",
     "/api/fd-match",
+    "/api/meta", "/api/upcoming", "/api/official-standings",
 }
 
 
