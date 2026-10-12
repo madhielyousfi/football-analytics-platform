@@ -182,12 +182,16 @@ def main() -> None:
                       "recovery": "Next scheduled run retries automatically; "
                                   "prior data preserved by rollback."}
                      for k, v in latest_by_key.items() if v.get("status") == "FAILED"]
-        order = {"CRITICAL": 0, "WARNING": 1, "UNKNOWN": 2, "HEALTHY": 3}
+        order = {"CRITICAL": 0, "WARNING": 1, "HEALTHY": 3}
+        # UNKNOWN (e.g. archived seasons) never masks actionable states and
+        # never fakes HEALTHY; mirrors api.freshness.overall_status.
+        present = [f["status"] for f in freshness if f["status"] != "UNKNOWN"]
+        overall = (min(present, key=lambda s: order.get(s, 1))
+                   if present else "UNKNOWN")
         write(out / "monitoring.json", {
             "generated_at": now.isoformat(), "snapshot": True,
             "runs": mon_runs[:20], "freshness": freshness,
-            "overall": min([f["status"] for f in freshness],
-                           key=lambda s: order.get(s, 2)) if freshness else "UNKNOWN",
+            "overall": overall,
             "dq": dq, "incidents": incidents,
             "thresholds": {"warning_hours": 8, "critical_hours": 14}})
 

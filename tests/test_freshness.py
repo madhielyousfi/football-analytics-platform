@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from api.freshness import (
     active_incidents,
+    overall_status,
     per_competition_freshness,
     status_for_age,
 )
@@ -29,6 +30,13 @@ def test_age_thresholds() -> None:
     assert status_for_age(2) == "HEALTHY"
     assert status_for_age(8) == "WARNING"
     assert status_for_age(14) == "CRITICAL"
+
+
+def test_overall_ignores_archived_unknown() -> None:
+    assert overall_status(["HEALTHY", "UNKNOWN"]) == "HEALTHY"
+    assert overall_status(["WARNING", "UNKNOWN"]) == "WARNING"
+    assert overall_status(["UNKNOWN"]) == "UNKNOWN"
+    assert overall_status(["CRITICAL", "HEALTHY"]) == "CRITICAL"
 
 
 def test_healthy_reports_change_flag() -> None:

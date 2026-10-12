@@ -28,6 +28,7 @@ from api.freshness import (
     CRIT_HOURS,
     WARN_HOURS,
     active_incidents,
+    overall_status,
     per_competition_freshness,
 )
 
@@ -751,9 +752,7 @@ def monitoring(limit: int = Query(20, le=100)):
     except HTTPException:
         scope = []
     freshness = per_competition_freshness(runs, scope)
-    order = {"CRITICAL": 0, "WARNING": 1, "UNKNOWN": 2, "HEALTHY": 3}
-    overall = min([f["status"] for f in freshness],
-                  key=lambda s: order.get(s, 2)) if freshness else "UNKNOWN"
+    overall = overall_status([f["status"] for f in freshness]) if freshness else "UNKNOWN"
     try:
         dq_rows = fetch(
             """SELECT run_id, max(recorded_at) AS recorded_at,

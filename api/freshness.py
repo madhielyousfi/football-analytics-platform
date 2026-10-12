@@ -38,6 +38,18 @@ def status_for_age(hours: float | None) -> str:
     return "HEALTHY"
 
 
+def overall_status(statuses: list[str]) -> str:
+    """Worst actionable status; UNKNOWN only counts when nothing else reports.
+
+    Archived seasons without attributed history report UNKNOWN by design and
+    must not mask a CRITICAL/WARNING elsewhere — nor fake HEALTHY.
+    """
+    actionable = [s for s in statuses if s != "UNKNOWN"]
+    pool = actionable if actionable else ["UNKNOWN"]
+    order = {"CRITICAL": 0, "WARNING": 1, "UNKNOWN": 2, "HEALTHY": 3}
+    return min(pool, key=lambda s: order.get(s, 2))
+
+
 def per_competition_freshness(runs: list[dict[str, Any]],
                              current: list[dict[str, Any]],
                              now: datetime | None = None) -> list[dict[str, Any]]:
