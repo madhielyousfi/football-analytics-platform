@@ -135,7 +135,7 @@ def test_unknown_competition_skipped_without_api_spend(tmp_path: Path) -> None:
 
 def test_genuine_error_records_failed_and_main_exits_1(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    config = make_config(tmp_path, competitions=("PL",))
+    make_config(tmp_path, competitions=("PL",))
     client = FakeFDClient(fail_pd_teams=False)
     client.get_matches = Mock(side_effect=RuntimeError("API HTTP 500 for /x"))
     monkeypatch.setattr(ingest_module, "FootballDataClient", Mock(return_value=client))

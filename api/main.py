@@ -20,10 +20,15 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from api.push_store import (
-    all_subscriptions as _all_subs,
     ensure_push_tables,
     subscribe as _subscribe,
     unsubscribe as _unsubscribe,
+)
+from api.freshness import (
+    CRIT_HOURS,
+    WARN_HOURS,
+    active_incidents,
+    per_competition_freshness,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -58,8 +63,8 @@ def fetch(sql: str, params: Optional[list] = None):
             rel = con.execute(sql, params or [])
             cols = [d[0] for d in rel.description]
             rows = rel.fetchall()
-    except duckdb.CatalogException as exc:
-        raise HTTPException(status_code=503, detail=f"dbt marts missing ({exc}). Run dbt build.") from exc
+    except (duckdb.CatalogException, duckdb.BinderException) as exc:
+        raise HTTPException(status_code=503, detail=f"Warehouse schema too old ({exc}). Run ingestion + dbt build.") from exc
     out = []
     for r in rows:
         rec = {}
@@ -708,7 +713,63 @@ def pipeline_runs(limit: int = Query(20, le=100)):
         return fetch(
             """SELECT run_id, pipeline_name, started_at, completed_at, status,
                rows_received, rows_inserted, rows_updated, error_message,
+               competition, season, api_requests, rows_rejected, error_category,
                date_diff('second', started_at, completed_at) AS duration_seconds
                FROM metadata.pipeline_runs ORDER BY started_at DESC LIMIT ?""", [limit])
     except HTTPException:
         return JSONResponse(content=[])
+
+
+@app.get("/api/monitoring")
+def monitoring(limit: int = Query(20, le=100)):
+    """Health, freshness, data-quality and incidents from persisted run data."""
+    try:
+        runs = fetch(
+            """SELECT run_id, pipeline_name, started_at, completed_at, status,
+               rows_received, rows_inserted, rows_updated, error_message,
+               competition, season, api_requests, rows_rejected, error_category,
+               date_diff('second', started_at, completed_at) AS duration_seconds
+               FROM metadata.pipeline_runs ORDER BY started_at DESC LIMIT ?""",
+            [limit * 5])
+    except HTTPException:
+        try:
+            runs = fetch(
+                """SELECT run_id, pipeline_name, started_at, completed_at, status,
+                   rows_received, rows_inserted, rows_updated, error_message,
+                   date_diff('second', started_at, completed_at) AS duration_seconds
+                   FROM metadata.pipeline_runs ORDER BY started_at DESC LIMIT ?""",
+                [limit * 5])
+        except HTTPException:
+            return JSONResponse(content={"runs": [], "freshness": [], "dq": None,
+                                         "incidents": [], "overall": "UNKNOWN"})
+    try:
+        scope = fetch(
+            """SELECT f.competition_id, c.competition_code AS competition, max(f.season) AS season
+               FROM marts.fact_matches f
+               JOIN marts.dim_competition c USING (competition_id)
+               GROUP BY f.competition_id, c.competition_code""")
+    except HTTPException:
+        scope = []
+    freshness = per_competition_freshness(runs, scope)
+    order = {"CRITICAL": 0, "WARNING": 1, "UNKNOWN": 2, "HEALTHY": 3}
+    overall = min([f["status"] for f in freshness],
+                  key=lambda s: order.get(s, 2)) if freshness else "UNKNOWN"
+    try:
+        dq_rows = fetch(
+            """SELECT run_id, max(recorded_at) AS recorded_at,
+               count(*) AS total,
+               count(*) FILTER (WHERE status IN ('pass', 'success')) AS passed,
+               count(*) FILTER (WHERE status IN ('fail', 'error')) AS failed
+               FROM metadata.dbt_test_results GROUP BY run_id
+               ORDER BY recorded_at DESC LIMIT 1""")
+        dq_failures = fetch(
+            """SELECT node_name, status, message, recorded_at
+               FROM metadata.dbt_test_results
+               WHERE status IN ('fail', 'error')
+               ORDER BY recorded_at DESC LIMIT 10""")
+        dq = {"latest": dq_rows[0] if dq_rows else None, "failures": dq_failures}
+    except HTTPException:
+        dq = None
+    return {"runs": runs[:limit], "freshness": freshness, "overall": overall,
+            "dq": dq, "incidents": active_incidents(runs),
+            "thresholds": {"warning_hours": WARN_HOURS, "critical_hours": CRIT_HOURS}}

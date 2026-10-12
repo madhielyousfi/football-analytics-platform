@@ -9,6 +9,23 @@ from typing import Any, Iterator
 import duckdb
 
 
+def ensure_pipeline_run_columns(connection: duckdb.DuckDBPyConnection) -> None:
+    """Add observability columns to pre-existing run tables (nullable)."""
+    existing = {row[0] for row in connection.execute(
+        """SELECT column_name FROM information_schema.columns
+           WHERE table_schema = 'metadata' AND table_name = 'pipeline_runs'""").fetchall()}
+    for column, ddl in (
+        ("competition", "VARCHAR"),
+        ("season", "INTEGER"),
+        ("api_requests", "INTEGER DEFAULT 0"),
+        ("rows_rejected", "INTEGER DEFAULT 0"),
+        ("error_category", "VARCHAR"),
+    ):
+        if column not in existing:
+            connection.execute(
+                f"ALTER TABLE metadata.pipeline_runs ADD COLUMN {column} {ddl}")
+
+
 @contextmanager
 def connect(path: Path) -> Iterator[duckdb.DuckDBPyConnection]:
     """Create a local database and close its connection reliably."""
@@ -51,6 +68,7 @@ def create_tables(connection: duckdb.DuckDBPyConnection) -> None:
         rows_inserted INTEGER DEFAULT 0, rows_updated INTEGER DEFAULT 0,
         error_message VARCHAR
     )""")
+    ensure_pipeline_run_columns(connection)
     connection.execute("""CREATE TABLE IF NOT EXISTS raw.competitions (
         competition_id INTEGER PRIMARY KEY, name VARCHAR, code VARCHAR,
         type VARCHAR, area_name VARCHAR, current_season_id INTEGER,
@@ -158,21 +176,25 @@ def create_tables(connection: duckdb.DuckDBPyConnection) -> None:
 
 
 def start_run(connection: duckdb.DuckDBPyConnection, run_id: str,
-              pipeline: str = "football_ingestion") -> None:
+              pipeline: str = "football_ingestion",
+              competition: str | None = None, season: int | None = None) -> None:
     connection.execute("""INSERT INTO metadata.pipeline_runs
-        (run_id, pipeline_name, started_at, status)
-        VALUES (?, ?, ?, 'RUNNING')""",
-        [run_id, pipeline, datetime.now(timezone.utc)])
+        (run_id, pipeline_name, started_at, status, competition, season)
+        VALUES (?, ?, ?, 'RUNNING', ?, ?)""",
+        [run_id, pipeline, datetime.now(timezone.utc), competition, season])
 
 
 def finish_run(connection: duckdb.DuckDBPyConnection, run_id: str, status: str,
                received: int = 0, inserted: int = 0, updated: int = 0,
-               error: str | None = None) -> None:
+               error: str | None = None, api_requests: int = 0,
+               rejected: int = 0, error_category: str | None = None) -> None:
     connection.execute("""UPDATE metadata.pipeline_runs
         SET completed_at = ?, status = ?, rows_received = ?,
-            rows_inserted = ?, rows_updated = ?, error_message = ?
+            rows_inserted = ?, rows_updated = ?, error_message = ?,
+            api_requests = ?, rows_rejected = ?, error_category = ?
         WHERE run_id = ?""", [datetime.now(timezone.utc), status,
-                               received, inserted, updated, error, run_id])
+                               received, inserted, updated, error,
+                               api_requests, rejected, error_category, run_id])
 
 
 def mark_skipped(connection: duckdb.DuckDBPyConnection, run_id: str,

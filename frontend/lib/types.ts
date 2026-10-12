@@ -26,7 +26,28 @@ export type HomeAway = Record<string, number | string | null> & { team_id: numbe
 export type Progression = { match_id: number; match_date: string; match_datetime: string; opponent_name: string; venue_type: string; result: string; goals_for: number; goals_against: number; points: number; cumulative_goals: number; cumulative_points: number };
 export type Match = { match_id: number; match_date: string; home_team: string; home_crest_url?: string | null; away_team: string; away_crest_url?: string | null; home_goals?: number | null; away_goals?: number | null; match_status: string; matchday?: number | null };
 export type H2H = { matches_played: number; draws: number; selected_a_wins: number; selected_b_wins: number; selected_a_goals: number; selected_b_goals: number; recent_results?: string | null };
-export type PipelineRun = { run_id: string; pipeline_name: string; started_at: string; completed_at?: string | null; status: string; rows_received?: number; rows_inserted?: number; rows_updated?: number; error_message?: string | null; duration_seconds?: number | null };
+export type PipelineRun = { run_id: string; pipeline_name: string; started_at: string; completed_at?: string | null; status: string; rows_received?: number; rows_inserted?: number; rows_updated?: number; error_message?: string | null; duration_seconds?: number | null; competition?: string | null; season?: number | null; api_requests?: number | null; rows_rejected?: number | null; error_category?: string | null };
+export type FreshnessRow = {
+  competition?: string | null; season?: number | null; status: string;
+  hours_since_success?: number | null; last_success?: string | null;
+  last_status?: string | null; matches_changed: boolean;
+  consecutive_failures: number; note?: string | null;
+};
+export type DQSummary = {
+  latest?: { run_id: string; recorded_at?: string | null; total: number; passed: number; failed: number } | null;
+  failures: { node_name: string; status: string; message?: string | null; recorded_at?: string | null }[];
+};
+export type Incident = {
+  pipeline?: string | null; competition?: string | null; run_id?: string | null;
+  failed_at?: string | null; category?: string | null; reason?: string | null;
+  remediation?: string | null; recovery?: string | null;
+};
+export type Monitoring = {
+  runs: PipelineRun[]; freshness: FreshnessRow[]; overall: string;
+  dq?: DQSummary | null; incidents: Incident[];
+  thresholds: { warning_hours: number; critical_hours: number };
+  generated_at?: string | null; snapshot?: boolean | null;
+};
 export type LiveFixture = {
   fixture_id: number; league_id: number; league_name: string; season: number; round?: string | null;
   fixture_date: string; status_long?: string | null; status_short?: string | null; elapsed?: number | null;

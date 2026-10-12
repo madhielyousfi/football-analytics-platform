@@ -18,6 +18,7 @@ from ingestion.database import (
     start_run,
     upsert_rows,
 )
+from ingestion.validate import classify_error, split_valid
 from ingestion.ingest_competitions import competition_rows
 from ingestion.ingest_matches import match_rows
 from ingestion.ingest_standings import standing_rows
@@ -26,6 +27,12 @@ from ingestion.ingest_teams import team_rows
 LOGGER = logging.getLogger(__name__)
 
 SKIP_HTTP = ("HTTP 404", "HTTP 403", "HTTP 429")
+
+
+def _api_calls(client: FootballDataClient) -> int:
+    """HTTP requests made, tolerating mock clients without a counter."""
+    calls = getattr(client, "calls_made", 0)
+    return calls if isinstance(calls, int) else 0
 
 
 def ingest(config: Config, client: FootballDataClient | None = None,
@@ -38,17 +45,17 @@ def ingest(config: Config, client: FootballDataClient | None = None,
     LOGGER.info("Starting football ingestion: competition=%s season=%s", config.competition, config.season)
     with connect(config.duckdb_path) as connection:
         create_tables(connection)
-        start_run(connection, run_id)
-        received = inserted = updated = 0
+        start_run(connection, run_id, competition=config.competition,
+                  season=config.season)
+        received = inserted = updated = rejected = 0
         transaction_open = False
         try:
-            competitions = client.get_competitions().get("competitions", [])
-            if not isinstance(competitions, list):
-                raise ValueError("Invalid competitions list in API response")
+            competitions, n = split_valid(
+                client.get_competitions().get("competitions", []), "id", "competitions")
+            rejected += n
             teams_response = client.get_teams(config.competition, config.season)
-            teams = teams_response.get("teams", [])
-            if not isinstance(teams, list):
-                raise ValueError("Invalid teams list in API response")
+            teams, n = split_valid(teams_response.get("teams", []), "id", "teams")
+            rejected += n
             selected = next((item for item in competitions if item.get("code") == config.competition), None)
             if selected is None:
                 selected = teams_response.get("competition")
@@ -71,7 +78,9 @@ def ingest(config: Config, client: FootballDataClient | None = None,
             else:
                 LOGGER.info("Loading full season matches")
                 matches_response = client.get_matches(config.competition, config.season)
-            matches = matches_response.get("matches", [])
+            matches, n = split_valid(
+                matches_response.get("matches", []), "id", "matches")
+            rejected += n
             if selected.get("type") in {"CUP", "PLAYOFFS"}:
                 LOGGER.info("Attempting standings for %s competition (may be empty)",
                             selected.get("type"))
@@ -82,10 +91,10 @@ def ingest(config: Config, client: FootballDataClient | None = None,
                 standings_response = {"competition": selected, "standings": []}
             standings = standing_rows(standings_response, run_id,
                                       config.competition, config.season)
+            standings, n = split_valid(standings, "standing_key", "standings")
+            rejected += n
             for label, items in (("competitions", competitions), ("teams", teams),
                                  ("matches", matches), ("standings", standings)):
-                if not isinstance(items, list):
-                    raise ValueError(f"Invalid {label} list in API response")
                 LOGGER.info("%s received: %s", label.capitalize(), len(items))
                 if not items:
                     if label == "matches" and existing_matches and not config.full_refresh:
@@ -114,12 +123,17 @@ def ingest(config: Config, client: FootballDataClient | None = None,
                 LOGGER.info("%s: new=%s updated=%s", table, new, changed)
             connection.execute("COMMIT")
             transaction_open = False
-            finish_run(connection, run_id, "SUCCESS", received, inserted, updated)
-            LOGGER.info("Ingestion completed successfully: run_id=%s", run_id)
+            finish_run(connection, run_id, "SUCCESS", received, inserted, updated,
+                       api_requests=_api_calls(client), rejected=rejected)
+            LOGGER.info("Ingestion completed successfully: run_id=%s "
+                        "(received=%s inserted=%s updated=%s rejected=%s api_requests=%s)",
+                        run_id, received, inserted, updated, rejected, _api_calls(client))
         except Exception as exc:
             if transaction_open:
                 connection.execute("ROLLBACK")
-            finish_run(connection, run_id, "FAILED", received, 0, 0, str(exc))
+            finish_run(connection, run_id, "FAILED", received, 0, 0, str(exc),
+                       api_requests=_api_calls(client), rejected=rejected,
+                       error_category=classify_error(exc))
             LOGGER.exception("Ingestion failed: run_id=%s", run_id)
             raise
     return run_id

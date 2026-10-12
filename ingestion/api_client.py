@@ -22,6 +22,7 @@ class FootballDataClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.pace_seconds = pace_seconds
+        self.calls_made = 0
         self.session = session or requests.Session()
         self.session.headers.update({"X-Auth-Token": token, "Accept": "application/json"})
 
@@ -30,6 +31,7 @@ class FootballDataClient:
             try:
                 if self.pace_seconds > 0:
                     time.sleep(self.pace_seconds)
+                self.calls_made += 1
                 response = self.session.get(
                     f"{self.base_url}{endpoint}", params=params, timeout=self.timeout
                 )

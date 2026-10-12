@@ -20,6 +20,7 @@ on:
 permissions:
   contents: read
   actions: read
+  issues: write
 
 concurrency:
   group: fd-refresh
@@ -59,6 +60,12 @@ jobs:
         working-directory: football_dbt
         run: dbt build --profiles-dir .
 
+      - name: Record dbt results for monitoring
+        run: python scripts/record_dbt_results.py --db data/football.duckdb --run-results football_dbt/target/run_results.json
+
+      - name: Validate warehouse before publication
+        run: python scripts/validate_warehouse.py --db data/football.duckdb --min-matches 100
+
       - name: Preserve warehouse for next refresh
         uses: actions/upload-artifact@v4
         with:
@@ -66,3 +73,26 @@ jobs:
           path: data/football.duckdb
           if-no-files-found: error
           retention-days: 14
+
+      - name: Report incident on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = '[incident] fd-refresh failed';
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'pipeline-incident',
+            });
+            const body = `Run ${context.runId} failed: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\nCheck metadata.pipeline_runs error_category for the root cause; prior data preserved by rollback.`;
+            if (issues.some(i => i.title === title)) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: issues.find(i => i.title === title).number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title, body, labels: ['pipeline-incident'],
+              });
+            }

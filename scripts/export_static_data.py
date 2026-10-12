@@ -91,6 +91,106 @@ def main() -> None:
             runs = []
         write(out / "pipeline-runs.json", runs)
 
+        # Monitoring snapshot (frozen at export time; mirrors api/freshness.py
+        # and the /api/monitoring endpoint, which stay live in dynamic mode).
+        # Old run rows predate per-competition attribution and match no scope,
+        # so affected competitions honestly report UNKNOWN until new runs land.
+        try:
+            mon_runs = fetch(
+                con,
+                """SELECT run_id, pipeline_name, started_at, completed_at, status,
+                   rows_received, rows_inserted, rows_updated, error_message,
+                   competition, season, api_requests, rows_rejected, error_category
+                   FROM metadata.pipeline_runs ORDER BY started_at DESC LIMIT 100""")
+        except (duckdb.CatalogException, duckdb.BinderException):
+            mon_runs = []
+        from datetime import datetime as _dt, timezone as _tz
+        now = _dt.now(_tz.utc)
+
+        def _age(value) -> float | None:
+            if not value:
+                return None
+            moment = _dt.fromisoformat(str(value))
+            if moment.tzinfo is None:
+                moment = moment.replace(tzinfo=_tz.utc)
+            return max(0.0, (now - moment).total_seconds() / 3600.0)
+
+        def _band(hours) -> str:
+            if hours is None:
+                return "UNKNOWN"
+            if hours >= 14:
+                return "CRITICAL"
+            if hours >= 8:
+                return "WARNING"
+            return "HEALTHY"
+
+        freshness = []
+        for comp in list(grouped.values()):
+            code = comp.get("competition_code")
+            name = comp.get("competition_name")
+            latest_season = max(comp["seasons"])
+            comp_runs = [r for r in mon_runs
+                         if r.get("competition") in (code, name)]
+            ok = [r for r in comp_runs if r.get("status") == "SUCCESS"]
+            if ok:
+                hours = _age(ok[0].get("completed_at"))
+                changed = ((ok[0].get("rows_inserted") or 0)
+                           + (ok[0].get("rows_updated") or 0) > 0)
+                freshness.append({"competition": code, "season": latest_season,
+                                  "status": _band(hours), "hours_since_success": hours,
+                                  "last_success": ok[0].get("completed_at"),
+                                  "matches_changed": changed,
+                                  "consecutive_failures": 0,
+                                  "note": None if changed else
+                                  "Last refresh succeeded with no changed matches."})
+            else:
+                failures = 0
+                for row in comp_runs:
+                    if row.get("status") == "FAILED":
+                        failures += 1
+                    else:
+                        break
+                freshness.append({"competition": code, "season": latest_season,
+                                  "status": "UNKNOWN", "hours_since_success": None,
+                                  "last_success": None, "matches_changed": False,
+                                  "consecutive_failures": failures,
+                                  "note": "No successful refresh recorded yet."})
+        try:
+            dq_latest = fetch(
+                con,
+                """SELECT run_id, max(recorded_at) AS recorded_at, count(*) AS total,
+                   count(*) FILTER (WHERE status IN ('pass', 'success')) AS passed,
+                   count(*) FILTER (WHERE status IN ('fail', 'error')) AS failed
+                   FROM metadata.dbt_test_results GROUP BY run_id
+                   ORDER BY recorded_at DESC LIMIT 1""")
+            dq_failures = fetch(
+                con,
+                """SELECT node_name, status, message, recorded_at
+                   FROM metadata.dbt_test_results
+                   WHERE status IN ('fail', 'error')
+                   ORDER BY recorded_at DESC LIMIT 10""")
+            dq = {"latest": dq_latest[0] if dq_latest else None, "failures": dq_failures}
+        except (duckdb.CatalogException, duckdb.BinderException):
+            dq = None
+        latest_by_key: dict = {}
+        for row in sorted(mon_runs, key=lambda r: str(r.get("started_at") or "")):
+            latest_by_key[(row.get("pipeline_name"), row.get("competition"))] = row
+        incidents = [{"pipeline": k[0], "competition": k[1],
+                      "run_id": v.get("run_id"), "failed_at": v.get("completed_at"),
+                      "category": v.get("error_category") or "UNKNOWN",
+                      "reason": v.get("error_message"),
+                      "recovery": "Next scheduled run retries automatically; "
+                                  "prior data preserved by rollback."}
+                     for k, v in latest_by_key.items() if v.get("status") == "FAILED"]
+        order = {"CRITICAL": 0, "WARNING": 1, "UNKNOWN": 2, "HEALTHY": 3}
+        write(out / "monitoring.json", {
+            "generated_at": now.isoformat(), "snapshot": True,
+            "runs": mon_runs[:20], "freshness": freshness,
+            "overall": min([f["status"] for f in freshness],
+                           key=lambda s: order.get(s, 2)) if freshness else "UNKNOWN",
+            "dq": dq, "incidents": incidents,
+            "thresholds": {"warning_hours": 8, "critical_hours": 14}})
+
         try:
             live = fetch(
                 con,

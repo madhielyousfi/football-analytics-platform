@@ -103,6 +103,8 @@ async function apiStatic<T>(path: string, params: Record<string, string | number
       const rows = await getJson<any[]>(`${cs}/upcoming.json`).catch(() => []);
       return rows.slice(0, Number(params["limit"] ?? 15)) as T;
     }
+    case "/api/monitoring":
+      return getJson<T>("monitoring.json");
     case "/api/official-standings":
       return getJson<T>(`${cs}/official-table.json`);
     case "/api/top-scorers": {

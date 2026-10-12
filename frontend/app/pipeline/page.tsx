@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { PageHeader, Empty } from "@/components/ui";
 import type { PipelineRun } from "@/lib/types";
@@ -26,7 +27,8 @@ export default function PipelinePage() {
   return (
     <div>
       <PageHeader eyebrow="Operations" title="Pipeline health"
-        sub="API → raw → staging → marts · reruns are idempotent on match keys" />
+        sub="API → raw → staging → marts · reruns are idempotent on match keys"
+        right={<Link href="/pipeline/monitoring" className="badge border-pitch/30 bg-pitch/10 text-green-300 hover:bg-pitch/20">📡 Monitoring →</Link>} />
       {runs.isError ? <Empty msg="API unreachable. Run `make api` first." /> : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
