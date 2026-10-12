@@ -69,7 +69,7 @@ jobs:
         run: dbt build --profiles-dir .
 
       - name: Record dbt results
-        run: python scripts/record_dbt_results.py --db "$DBT_DUCKDB_PATH" --run-results football_dbt/target/run_results.json
+        run: python -m scripts.record_dbt_results --db "$DBT_DUCKDB_PATH" --run-results football_dbt/target/run_results.json
 
   frontend:
     runs-on: ubuntu-latest

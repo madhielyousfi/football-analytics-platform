@@ -61,10 +61,10 @@ jobs:
         run: dbt build --profiles-dir .
 
       - name: Record dbt results for monitoring
-        run: python scripts/record_dbt_results.py --db data/football.duckdb --run-results football_dbt/target/run_results.json
+        run: python -m scripts.record_dbt_results --db data/football.duckdb --run-results football_dbt/target/run_results.json
 
       - name: Validate warehouse before publication
-        run: python scripts/validate_warehouse.py --db data/football.duckdb --min-matches 100
+        run: python -m scripts.validate_warehouse --db data/football.duckdb --min-matches 100
 
       - name: Preserve warehouse for next refresh
         uses: actions/upload-artifact@v4
