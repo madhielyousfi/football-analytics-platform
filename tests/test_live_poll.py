@@ -1,14 +1,17 @@
 """Live poller with an injected fake client (no key, no network)."""
 
+from datetime import date
 from pathlib import Path
 from unittest.mock import Mock
 
 import duckdb
 import pytest
 
+from ingestion import config as config_module
+from ingestion import run_live_poll as poll_module
 from ingestion.api_football_client import QuotaExceeded
 from ingestion.config import Config
-from ingestion.run_live_poll import poll
+from ingestion.run_live_poll import NoAccessibleSeason, default_season, main, poll
 
 
 def fixture(fixture_id: int, short: str, date: str = "2026-10-03T15:00:00+00:00") -> dict:
@@ -118,3 +121,42 @@ def test_goal_between_polls_sends_notification(tmp_path: Path,
     poll(config, 39, client=client, today="2026-10-03")
     assert sender.call_count == 1
     assert "Manchester City 2" in sender.call_args.args[1]
+
+
+def test_default_season_follows_football_calendar() -> None:
+    assert default_season(date(2026, 10, 12)) == 2026
+    assert default_season(date(2026, 7, 1)) == 2026
+    assert default_season(date(2026, 3, 1)) == 2025
+
+
+def test_season_passed_to_fixtures_call(tmp_path: Path) -> None:
+    config = make_config(tmp_path)
+    client = make_client([fixture(1, "NS")])
+    poll(config, 39, season=2024, client=client, today="2026-10-03")
+    assert client.get_fixtures.call_args.kwargs == {
+        "league": 39, "season": 2024, "date_": "2026-10-03"}
+
+
+def test_plan_error_records_skipped_run(tmp_path: Path) -> None:
+    import duckdb
+    config = make_config(tmp_path)
+    client = make_client([])
+    client.get_fixtures.side_effect = ValueError(
+        "API-Football errors on /fixtures: {'season': 'The Season field is required.'}")
+    with pytest.raises(NoAccessibleSeason, match="not accessible"):
+        poll(config, 39, client=client, today="2026-10-03")
+    with duckdb.connect(str(config.duckdb_path), read_only=True) as con:
+        row = con.execute(
+            "SELECT status, error_message FROM metadata.pipeline_runs").fetchone()
+        assert row[0] == "SKIPPED"
+        assert "not accessible" in (row[1] or "")
+
+
+def test_main_returns_zero_on_skipped(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(config_module, "load_dotenv", lambda: None)
+    monkeypatch.setenv("FOOTBALL_API_TOKEN", "test")
+    monkeypatch.setenv("API_FOOTBALL_KEY", "test")
+    monkeypatch.setenv("DUCKDB_PATH", str(tmp_path / "test.duckdb"))
+    monkeypatch.setattr(poll_module, "poll",
+                        Mock(side_effect=NoAccessibleSeason("plan locked")))
+    assert main(["--league", "39"]) == 0

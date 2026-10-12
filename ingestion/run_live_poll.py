@@ -1,9 +1,14 @@
 """Poll today's league fixtures; fetch events only while it matters.
 
-One cheap call (/fixtures?league&date) decides the run:
+One cheap call (/fixtures?league&season&date) decides the run:
 - nothing live and no finished fixture missing events -> exit (~1 call)
 - live fixtures -> refresh their events (1 call each, capped)
 - finished fixtures missing events -> backfill them (1 call each, capped)
+
+Season is required by the API; it defaults to the current football season
+(July+ -> calendar year, else previous year) and can be overridden with
+--season. When the plan cannot access the season, the run is recorded as
+SKIPPED (not SUCCESS, not FAILED) with an explanation.
 
 Usage:
     python -m ingestion.run_live_poll --league 39 --max-live 6 --max-backfill 6
@@ -16,7 +21,7 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
 from ingestion.api_football_client import (
@@ -46,12 +51,28 @@ LIVE_SHORT = {"1H", "HT", "2H", "ET", "BT", "P", "SUSP", "INT", "LIVE"}
 DONE_SHORT = {"FT", "AET", "PEN"}
 
 
+class NoAccessibleSeason(RuntimeError):
+    """The API cannot serve this league/season on the current plan."""
+
+
+def default_season(today: date | None = None) -> int:
+    """Football season starting year for a calendar date."""
+    day = today or datetime.now(timezone.utc).date()
+    return day.year if day.month >= 7 else day.year - 1
+
+
+def _is_season_plan_error(exc: BaseException) -> bool:
+    """Detect season-required / plan-restriction API errors (no retry helps)."""
+    text = str(exc).lower()
+    return "season" in text or "plan" in text or "access" in text
+
+
 def _short(item: dict) -> str | None:
     return ((item.get("fixture") or {}).get("status") or {}).get("short")
 
 
 def poll(config: Config, league_id: int, max_live: int = 6,
-         max_backfill: int = 6,
+         max_backfill: int = 6, season: int | None = None,
          client: ApiFootballClient | None = None,
          today: str | None = None) -> str:
     """Run one poll cycle; returns run_id."""
@@ -59,9 +80,10 @@ def poll(config: Config, league_id: int, max_live: int = 6,
         raise ValueError("API_FOOTBALL_KEY is required; set it in .env")
     client = client or ApiFootballClient(config.api_football_key,
                                          config.api_football_base_url)
+    season = season if season is not None else default_season()
     day = today or datetime.now(timezone.utc).date().isoformat()
     run_id = str(uuid4())
-    LOGGER.info("Live poll: league=%s date=%s", league_id, day)
+    LOGGER.info("Live poll: league=%s season=%s date=%s", league_id, season, day)
     with connect(config.duckdb_path) as connection:
         create_tables(connection)
         start_run(connection, run_id, pipeline="live_poll")
@@ -71,7 +93,15 @@ def poll(config: Config, league_id: int, max_live: int = 6,
             check_daily_quota(connection, needed=1,
                               daily_limit=config.api_football_daily_limit,
                               abort_at=config.api_football_abort_at)
-            payload = client.get_fixtures(league=league_id, date_=day)
+            try:
+                payload = client.get_fixtures(league=league_id, season=season, date_=day)
+            except ValueError as exc:
+                if _is_season_plan_error(exc):
+                    raise NoAccessibleSeason(
+                        f"League {league_id} season {season} is not accessible on this "
+                        f"API plan ({exc}). Pass --season for a covered season or upgrade."
+                    ) from exc
+                raise
             record_call(connection)
             items = payload.get("response", [])
             if not isinstance(items, list):
@@ -143,11 +173,15 @@ def poll(config: Config, league_id: int, max_live: int = 6,
         except Exception as exc:
             if transaction_open:
                 connection.execute("ROLLBACK")
-            finish_run(connection, run_id, "FAILED", received, 0, 0, str(exc))
-            if isinstance(exc, QuotaExceeded):
-                LOGGER.error("Poll stopped on quota: %s", exc)
+            if isinstance(exc, NoAccessibleSeason):
+                finish_run(connection, run_id, "SKIPPED", received, 0, 0, str(exc))
+                LOGGER.error("Poll skipped: %s", exc)
             else:
-                LOGGER.exception("Poll failed: run_id=%s", run_id)
+                finish_run(connection, run_id, "FAILED", received, 0, 0, str(exc))
+                if isinstance(exc, QuotaExceeded):
+                    LOGGER.error("Poll stopped on quota: %s", exc)
+                else:
+                    LOGGER.exception("Poll failed: run_id=%s", run_id)
             raise
     return run_id
 
@@ -155,12 +189,17 @@ def poll(config: Config, league_id: int, max_live: int = 6,
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--league", type=int, default=39)
+    parser.add_argument("--season", type=int, default=None,
+                        help="API season year; defaults to the current football season")
     parser.add_argument("--max-live", type=int, default=6)
     parser.add_argument("--max-backfill", type=int, default=6)
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     try:
-        poll(Config.from_env(), args.league, args.max_live, args.max_backfill)
+        poll(Config.from_env(), args.league, args.max_live, args.max_backfill, args.season)
+        return 0
+    except NoAccessibleSeason as exc:
+        LOGGER.error("Nothing to poll, will retry next window: %s", exc)
         return 0
     except QuotaExceeded as exc:
         LOGGER.error("Quota exhausted, will retry next window: %s", exc)

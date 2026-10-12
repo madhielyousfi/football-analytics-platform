@@ -80,3 +80,42 @@ def test_quota_is_per_day() -> None:
     record_call(con, day=date(2026, 1, 1))
     assert calls_today(con, day=date(2026, 1, 1)) == 2
     assert calls_today(con, day=date(2026, 1, 2)) == 0
+
+
+def test_rate_limit_retries_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("time.sleep", lambda *args: None)
+    limited = Mock(status_code=429, headers={})
+    ok = Mock(status_code=200, headers={}, json=lambda: ENVELOPE)
+    session = requests.Session()
+    session.get = Mock(side_effect=[limited, ok])
+    client = ApiFootballClient("placeholder", session=session)
+    assert client.get_fixture_events(7) == ENVELOPE
+    assert session.get.call_count == 2
+
+
+def test_rate_limit_exhausted_after_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("time.sleep", lambda *args: None)
+    limited = Mock(status_code=429, headers={})
+    limited.raise_for_status.side_effect = requests.HTTPError("throttled")
+    session = requests.Session()
+    session.get = Mock(return_value=limited)
+    client = ApiFootballClient("secret-value", session=session, max_retries=1)
+    with pytest.raises(RuntimeError, match="API-Football HTTP 429") as exc:
+        client.get_standings(39, 2026)
+    assert "secret-value" not in str(exc.value)
+
+
+def test_timeout_raises_without_key_leak() -> None:
+    session = requests.Session()
+    session.get = Mock(side_effect=requests.Timeout("slow"))
+    with pytest.raises(RuntimeError, match="request failed") as exc:
+        ApiFootballClient("secret-value", session=session, max_retries=0).get_leagues()
+    assert "secret-value" not in str(exc.value)
+
+
+def test_fixtures_include_season_param() -> None:
+    session = make_session()
+    ApiFootballClient("placeholder", session=session).get_fixtures(
+        league=39, season=2024, date_="2026-10-12")
+    assert session.get.call_args.kwargs["params"] == {
+        "league": 39, "season": 2024, "date": "2026-10-12"}

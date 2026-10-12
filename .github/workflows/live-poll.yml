@@ -15,6 +15,10 @@ on:
         description: API-Football league id
         required: false
         default: '39'
+      season:
+        description: API season year (blank = current football season)
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -65,7 +69,10 @@ jobs:
 
       - name: Run live poll
         if: env.API_FOOTBALL_KEY != ''
-        run: python -m ingestion.run_live_poll --league ${{ inputs.league || '39' }}
+        run: |
+          EXTRA_ARGS=""
+          if [ -n "${{ inputs.season }}" ]; then EXTRA_ARGS="--season ${{ inputs.season }}"; fi
+          python -m ingestion.run_live_poll --league ${{ inputs.league || '39' }} $EXTRA_ARGS
 
       - name: Preserve warehouse for next poll
         uses: actions/upload-artifact@v4

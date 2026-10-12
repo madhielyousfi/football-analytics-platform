@@ -14,6 +14,12 @@ function rel(iso?: string | null): string {
   return `${Math.floor(s / 86400)} d ago`;
 }
 
+function statusBadge(status: string): string {
+  if (status === "success") return "border-pitch/25 bg-pitch/10 text-green-300";
+  if (status === "SKIPPED") return "border-amber-400/30 bg-amber-400/10 text-amber-300";
+  return "border-red-500/25 bg-red-500/10 text-red-300";
+}
+
 export default function PipelinePage() {
   const runs = useQuery({ queryKey: ["runs"], queryFn: () => api<PipelineRun[]>("/api/pipeline-runs", { limit: 20 }) });
 
@@ -27,7 +33,7 @@ export default function PipelinePage() {
             {(runs.data ?? []).slice(0, 4).map((r) => (
               <div key={r.run_id} className="card">
                 <p className="text-xs font-semibold text-muted">{r.pipeline_name}</p>
-                <p className={`mt-2 inline-flex badge ${r.status === "success" ? "border-pitch/25 bg-pitch/10 text-green-300" : "border-red-500/25 bg-red-500/10 text-red-300"}`}>{r.status}</p>
+                <p className={`mt-2 inline-flex badge ${statusBadge(r.status)}`}>{r.status}</p>
                 <p className="mt-2 text-xs text-faint">+{r.rows_inserted ?? 0} · ~{r.rows_updated ?? 0} · {r.duration_seconds ?? "–"}s · {rel(r.completed_at)}</p>
               </div>
             ))}
@@ -45,7 +51,7 @@ export default function PipelinePage() {
                   {(runs.data ?? []).map((r) => (
                     <tr key={r.run_id}>
                       <td className="table-cell text-left font-mono text-[0.7rem]">{String(r.run_id).slice(0, 8)}</td>
-                      <td className="table-cell text-left"><span className={`badge ${r.status === "success" ? "border-pitch/25 bg-pitch/10 text-green-300" : "border-red-500/25 bg-red-500/10 text-red-300"}`}>{r.status}</span></td>
+                      <td className="table-cell text-left"><span className={`badge ${statusBadge(r.status)}`}>{r.status}</span></td>
                       <td className="table-cell">{r.rows_received ?? "–"}</td><td className="table-cell">{r.rows_inserted ?? "–"}</td>
                       <td className="table-cell">{r.rows_updated ?? "–"}</td><td className="table-cell">{r.duration_seconds ?? "–"}s</td>
                       <td className="table-cell">{rel(r.completed_at)}</td>

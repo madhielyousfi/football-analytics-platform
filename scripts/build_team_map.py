@@ -42,8 +42,10 @@ def main() -> int:
         if comp is None:
             raise SystemExit(f"Competition {args.competition} not ingested yet")
         fd = [{"team_id": row[0], "team_name": row[1]} for row in connection.execute(
-            "SELECT DISTINCT team_id, name FROM raw.teams WHERE competition_id = ?",
-            [comp[0]]).fetchall()]
+            """SELECT DISTINCT team_id, name FROM raw.teams
+               WHERE competition_id = ?
+                 AND _season = (SELECT MAX(_season) FROM raw.teams WHERE competition_id = ?)""",
+            [comp[0], comp[0]]).fetchall()]
         overrides = PL_OVERRIDES if args.competition == "PL" else {}
         rows = build_team_map(fd, af, overrides=overrides)
         upsert_team_map(connection, rows)
