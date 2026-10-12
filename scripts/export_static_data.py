@@ -69,12 +69,13 @@ def main() -> None:
                 """SELECT max(completed_at) AS last_success
                    FROM metadata.pipeline_runs
                    WHERE pipeline_name = 'football_ingestion' AND status = 'SUCCESS'""")
-            meta_counts = fetch("SELECT COUNT(*) AS matches FROM marts.fact_matches")
+            meta_counts = fetch(
+                con, "SELECT COUNT(*) AS matches FROM marts.fact_matches")
             write(out / "meta.json", {
                 "source": "football-data.org", "delayed": True,
                 "last_success": meta_rows[0]["last_success"] if meta_rows else None,
                 "matches": meta_counts[0]["matches"] if meta_counts else 0})
-        except duckdb.CatalogException:
+        except (duckdb.CatalogException, duckdb.BinderException):
             write(out / "meta.json", {"source": "football-data.org", "delayed": True,
                                       "last_success": None, "matches": 0})
 
@@ -86,7 +87,7 @@ def main() -> None:
                    date_diff('second', started_at, completed_at) AS duration_seconds
                    FROM metadata.pipeline_runs ORDER BY started_at DESC LIMIT 20""",
             )
-        except duckdb.CatalogException:
+        except (duckdb.CatalogException, duckdb.BinderException):
             runs = []
         write(out / "pipeline-runs.json", runs)
 
@@ -108,7 +109,7 @@ def main() -> None:
                        THEN fixture_date END ASC NULLS LAST,
                      fixture_date DESC LIMIT 100""",
             )
-        except duckdb.CatalogException:
+        except (duckdb.CatalogException, duckdb.BinderException):
             live = []
         write(out / "live.json", live)
 
@@ -142,7 +143,7 @@ def main() -> None:
                          BETWEEN m.match_date - INTERVAL 1 DAY
                              AND m.match_date + INTERVAL 1 DAY""",
             )
-        except duckdb.CatalogException:
+        except (duckdb.CatalogException, duckdb.BinderException):
             af_fixtures, af_events, resolve_rows = [], [], []
         write(out / "af-fixtures.json", af_fixtures)
         write(out / "af-events.json", af_events)
@@ -163,7 +164,7 @@ def main() -> None:
                    JOIN marts.dim_team home ON f.home_team_id = home.team_id
                    JOIN marts.dim_team away ON f.away_team_id = away.team_id
                    LIMIT 3000"""))
-        except duckdb.CatalogException:
+        except (duckdb.CatalogException, duckdb.BinderException):
             write(out / "fd-matches.json", [])
         try:
             write(out / "af-lineups.json", fetch(
@@ -187,7 +188,7 @@ def main() -> None:
                 con,
                 """SELECT fixture_id, bookmaker_id, bookmaker_name, bet_id,
                    bet_name, value_name, odd FROM raw_af.odds LIMIT 20000"""))
-        except duckdb.CatalogException:
+        except (duckdb.CatalogException, duckdb.BinderException):
             for name in ("af-lineups.json", "af-fixture-stats.json",
                          "af-player-stats.json", "af-odds.json"):
                 write(out / name, [])
@@ -200,7 +201,7 @@ def main() -> None:
                    FROM raw_af.injuries i
                    LEFT JOIN raw_af.fixtures f ON i.fixture_id = f.fixture_id
                    LIMIT 5000"""))
-        except duckdb.CatalogException:
+        except (duckdb.CatalogException, duckdb.BinderException):
             write(out / "af-injuries.json", [])
         try:
             write(out / "strengths.json", fetch(
@@ -216,7 +217,7 @@ def main() -> None:
                 """SELECT competition_id, season, average_home_goals,
                    average_away_goals, average_goals_per_match
                    FROM marts.mart_goal_analysis"""))
-        except duckdb.CatalogException:
+        except (duckdb.CatalogException, duckdb.BinderException):
             write(out / "strengths.json", [])
             write(out / "goal-averages.json", [])
         try:
@@ -249,7 +250,7 @@ def main() -> None:
                    FROM raw_af.player_stats p
                    JOIN raw_af.fixtures f ON p.fixture_id = f.fixture_id
                    ORDER BY f.fixture_date DESC LIMIT 20000"""))
-        except duckdb.CatalogException:
+        except (duckdb.CatalogException, duckdb.BinderException):
             for name in ("af-top-scorers.json", "af-players.json",
                          "af-player-matches.json"):
                 write(out / name, [])
@@ -300,13 +301,13 @@ def main() -> None:
                 official = fetch(
                     con,
                     """SELECT position, team_id, team_name, played_games AS played,
-                       wins, draws, losses, goals_for, goals_against,
-                       goal_difference, points
-                       FROM staging.stg_standings
-                       WHERE competition_id = ? AND season = ?
+                       won AS wins, draw AS draws, lost AS losses, goals_for,
+                       goals_against, goal_difference, points
+                       FROM raw.standings
+                       WHERE competition_id = ? AND _season = ?
                          AND standing_type = 'TOTAL'
                        ORDER BY position""", p)
-            except duckdb.CatalogException:
+            except (duckdb.CatalogException, duckdb.BinderException):
                 official = []
             write(cs / "official-table.json", official)
 
@@ -328,7 +329,7 @@ def main() -> None:
                        FROM marts.mart_knockout
                        WHERE competition_id = ? AND season = ?
                        ORDER BY round_order, match_datetime, match_id""", p)
-            except duckdb.CatalogException:
+            except (duckdb.CatalogException, duckdb.BinderException):
                 groups, bracket = [], []
             write(cs / "tournament-groups.json", groups)
             write(cs / "knockout.json", bracket)

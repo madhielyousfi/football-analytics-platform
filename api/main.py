@@ -633,14 +633,18 @@ def upcoming(competition_id: int, season: int, limit: int = Query(15, le=100)):
 
 @app.get("/api/official-standings")
 def official_standings(competition_id: int, season: int):
-    """Official API standings (TOTAL rows) for comparison with the calculated table."""
+    """Official API standings (TOTAL rows) for comparison with the calculated table.
+
+    Reads raw.standings directly: staging views carry catalog-qualified
+    references that break on copied database files.
+    """
     try:
         return fetch(
             """SELECT position, team_id, team_name, played_games AS played,
-               wins, draws, losses,
+               won AS wins, draw AS draws, lost AS losses,
                goals_for, goals_against, goal_difference, points
-               FROM staging.stg_standings
-               WHERE competition_id = ? AND season = ?
+               FROM raw.standings
+               WHERE competition_id = ? AND _season = ?
                  AND standing_type = 'TOTAL'
                ORDER BY position""",
             [competition_id, season])
