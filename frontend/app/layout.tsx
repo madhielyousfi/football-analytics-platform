@@ -6,6 +6,12 @@ import { Sidebar, MobileNav } from "@/components/sidebar";
 export const metadata: Metadata = {
   title: "Football Intelligence — Analytics Platform",
   description: "League standings, team form, matches and head-to-head from tested dbt marts.",
+  manifest: "manifest.webmanifest",
+  icons: {
+    icon: "favicon.svg",
+    apple: "icons/apple-touch-icon.png",
+  },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "FootballIntel" },
 };
 
 export const viewport: Viewport = {

@@ -8,7 +8,29 @@ import { MobileFilters } from "@/components/sidebar";
 import { PageHeader, Empty, Crest, FormBadge, SkeletonGrid } from "@/components/ui";
 import { ProgressionChart } from "@/components/charts";
 import { Star, useFavorites } from "@/components/favorites";
-import type { TeamFormRow, TeamPerf, HomeAway, Progression } from "@/lib/types";
+import type { TeamFormRow, TeamPerf, HomeAway, Progression, Overview } from "@/lib/types";
+
+function streaksOf(games: Progression[]) {
+  const ordered = [...games].sort((a, b) => String(a.match_datetime ?? a.match_date).localeCompare(String(b.match_datetime ?? b.match_date)));
+  let unbeaten = 0;
+  for (let i = ordered.length - 1; i >= 0; i--) {
+    if (ordered[i].result === "L") break;
+    unbeaten++;
+  }
+  let wins = 0;
+  for (let i = ordered.length - 1; i >= 0; i--) {
+    if (ordered[i].result !== "W") break;
+    wins++;
+  }
+  let winless = 0;
+  for (let i = ordered.length - 1; i >= 0; i--) {
+    if (ordered[i].result === "W") break;
+    winless++;
+  }
+  const clean = ordered.filter((g) => Number(g.goals_against ?? 0) === 0).length;
+  const blank = ordered.filter((g) => Number(g.goals_for ?? 0) === 0).length;
+  return { unbeaten, wins, winless, clean, blank, played: ordered.length };
+}
 
 export default function TeamsPage() {
   const { competitionId, season, loading } = useSelection();
@@ -22,6 +44,7 @@ export default function TeamsPage() {
   const perf = useQuery({ queryKey: ["perf", competitionId, season, activeId], queryFn: () => api<TeamPerf[]>(`/api/team-performance`, { ...params, team_id: activeId }), enabled: enabled && activeId !== null });
   const haQ = useQuery({ queryKey: ["ha1", competitionId, season, activeId], queryFn: () => api<HomeAway[]>(`/api/home-away`, { ...params, team_id: activeId }), enabled: enabled && activeId !== null });
   const prog = useQuery({ queryKey: ["prog", competitionId, season, activeId], queryFn: () => api<Progression[]>(`/api/team-progression`, { ...params, team_id: activeId }), enabled: enabled && activeId !== null });
+  const overview = useQuery({ queryKey: ["overview", competitionId, season], queryFn: () => api<Overview>("/api/overview", params), enabled });
 
   if (loading || teamsQ.isLoading) return (<div className="flex flex-col gap-4"><PageHeader eyebrow="Clubs" title="Teams" /><SkeletonGrid /></div>);
   if (teamsQ.isError) return <Empty msg="API unreachable. Run `make api` first." />;
@@ -29,6 +52,14 @@ export default function TeamsPage() {
   const p = perf.data?.[0];
   const h = haQ.data?.[0];
   const active = teamsQ.data?.find((t) => t.team_id === activeId);
+  const streaks = streaksOf(prog.data ?? []);
+  const lgAvgGF = (Number(overview.data?.average_goals_per_match ?? 0) || 0) / 2;
+  const teamGFpg = streaks.played > 0 ? Number(p?.goals_for ?? 0) / streaks.played : 0;
+  const teamGApg = streaks.played > 0 ? Number(p?.goals_against ?? 0) / streaks.played : 0;
+  const avgBars = lgAvgGF > 0 ? [
+    { label: "Scoring", team: teamGFpg, league: lgAvgGF, color: "#22C55E" },
+    { label: "Conceding", team: teamGApg, league: lgAvgGF, color: "#06B6D4" },
+  ] : [];
 
   return (
     <div>
@@ -66,6 +97,48 @@ export default function TeamsPage() {
             <p className="mt-1 text-xs text-faint">{note}</p></div>
         ))}
       </div>
+
+      <div className="card mt-4">
+        <div className="card-title">Streaks & habits <span>all completed games</span></div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {[
+            ["Unbeaten run", `${streaks.unbeaten}`, streaks.unbeaten >= 5 ? "text-green-300" : "text-white"],
+            ["Win streak", `${streaks.wins}`, "text-white"],
+            ["Winless run", `${streaks.winless}`, streaks.winless >= 5 ? "text-red-300" : "text-white"],
+            ["Clean sheets", `${streaks.clean}`, "text-white"],
+            ["Blanked", `${streaks.blank}`, "text-white"],
+          ].map(([label, value, cls]) => (
+            <div key={label as string} className="rounded-xl border border-line bg-surface2 p-3 text-center">
+              <p className={`text-xl font-extrabold ${cls}`}>{value}</p>
+              <p className="mt-0.5 text-[0.62rem] uppercase tracking-wide text-faint">{label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {avgBars.length > 0 && (
+        <div className="card mt-4">
+          <div className="card-title">vs league average <span>per game</span></div>
+          <div className="flex flex-col gap-3">
+            {avgBars.map((b) => {
+              const max = Math.max(b.team, b.league, 0.01);
+              return (
+                <div key={b.label}>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="text-faint">{b.label}</span>
+                    <span><b className="text-white">{b.team.toFixed(2)}</b> <span className="text-faint">vs {b.league.toFixed(2)}</span></span>
+                  </div>
+                  <div className="relative h-2 overflow-hidden rounded-full bg-white/5">
+                    <span className="absolute inset-y-0 left-0 rounded-full bg-white/15" style={{ width: `${(b.league / max) * 100}%` }} />
+                    <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(b.team / max) * 100}%`, background: b.color }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-[0.65rem] text-faint">Colored bar: team · faint bar: league average.</p>
+        </div>
+      )}
 
       <div className="card mt-4">
         <div className="card-title">Points & goals progression <span>cumulative</span></div>

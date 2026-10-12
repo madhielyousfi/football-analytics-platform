@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { downloadCsv } from "@/lib/csv";
 import { useSelection } from "@/components/selection";
 import { MobileFilters } from "@/components/sidebar";
 import { PageHeader, Empty, Crest, SkeletonGrid } from "@/components/ui";
@@ -70,6 +71,16 @@ export default function MatchesPage() {
 
       {list.isError ? <Empty msg="API unreachable. Run `make api` first." /> : (
         <div className="card !p-3">
+          {(list.data ?? []).length > 0 && (
+            <div className="flex justify-end px-2 pb-1">
+              <button
+                onClick={() => downloadCsv(`matches-${competitionId}-${season}.csv`, (list.data ?? []) as unknown as Record<string, unknown>[],
+                  ["match_date", "home_team", "home_goals", "away_goals", "away_team", "match_status", "matchday"])}
+                className="text-xs font-bold text-pitch hover:underline">
+                ⬇ Export CSV
+              </button>
+            </div>
+          )}
           {(list.data ?? []).map((m) => (
             <Link key={m.match_id} href={`/fixture/by-fd/${m.match_id}`} className="block hover:bg-white/[0.02]">
             <div className="flex items-center gap-2 border-b border-white/5 px-2 py-3 text-xs last:border-0 sm:text-sm">
